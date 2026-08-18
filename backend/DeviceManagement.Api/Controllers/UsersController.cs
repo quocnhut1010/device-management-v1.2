@@ -13,10 +13,26 @@ public class UsersController(IUserService service) : ControllerBase
     public async Task<ActionResult<ApiResponse<List<UserDto>>>> GetAsync() =>
         Ok(ApiResponse<List<UserDto>>.Ok(await service.GetAsync()));
 
+    [HttpGet("{id:guid}")]
+    public async Task<ActionResult<ApiResponse<UserDetailDto>>> GetByIdAsync(Guid id) =>
+        Ok(ApiResponse<UserDetailDto>.Ok(await service.GetByIdAsync(id)));
+
     [HttpPost]
     public async Task<ActionResult<ApiResponse<UserDto>>> CreateAsync(CreateUserRequest request)
     {
         var result = await service.CreateAsync(request);
-        return Ok(ApiResponse<UserDto>.Ok(result));
+        return CreatedAtAction(nameof(GetByIdAsync), new { id = result.Id }, ApiResponse<UserDto>.Ok(result));
+    }
+
+    [HttpPut("{id:guid}")]
+    public async Task<ActionResult<ApiResponse<UserDto>>> UpdateAsync(Guid id, UpdateUserRequest request) =>
+        Ok(ApiResponse<UserDto>.Ok(await service.UpdateAsync(id, request)));
+
+    [HttpDelete("{id:guid}")]
+    public async Task<IActionResult> DeleteAsync(Guid id)
+    {
+        await service.DeleteAsync(id);
+        return NoContent();
     }
 }
+
