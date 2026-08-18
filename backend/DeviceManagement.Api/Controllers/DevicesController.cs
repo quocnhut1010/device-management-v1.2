@@ -28,7 +28,7 @@ public class DevicesController : ControllerBase
     public async Task<ActionResult<ApiResponse<DeviceDto>>> CreateAsync(CreateDeviceRequest request)
     {
         var result = await _service.CreateAsync(request);
-        return CreatedAtAction(nameof(GetByIdAsync), new { id = result.Id }, ApiResponse<DeviceDto>.Ok(result));
+        return Created($"/api/devices/{result.Id}", ApiResponse<DeviceDto>.Ok(result));
     }
 
     [HttpPut("{id:guid}")]

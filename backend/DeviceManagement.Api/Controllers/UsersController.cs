@@ -28,7 +28,7 @@ public class UsersController : ControllerBase
     public async Task<ActionResult<ApiResponse<UserDto>>> CreateAsync(CreateUserRequest request)
     {
         var result = await _service.CreateAsync(request);
-        return CreatedAtAction(nameof(GetByIdAsync), new { id = result.Id }, ApiResponse<UserDto>.Ok(result));
+        return Created($"/api/users/{result.Id}", ApiResponse<UserDto>.Ok(result));
     }
 
     [HttpPut("{id:guid}")]
