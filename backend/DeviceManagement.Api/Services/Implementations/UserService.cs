@@ -7,14 +7,23 @@ using DeviceManagement.Api.Services.Interfaces;
 
 namespace DeviceManagement.Api.Services.Implementations;
 
-public class UserService(IUserRepository repository, DeviceManagementDbContext context) : IUserService
+public class UserService : IUserService
 {
+    private readonly IUserRepository _repository;
+    private readonly DeviceManagementDbContext _context;
+
+    public UserService(IUserRepository repository, DeviceManagementDbContext context)
+    {
+        _repository = repository;
+        _context = context;
+    }
+
     public async Task<List<UserDto>> GetAsync() =>
-        (await repository.GetAsync()).Select(ToDto).ToList();
+        (await _repository.GetAsync()).Select(ToDto).ToList();
 
     public async Task<UserDetailDto> GetByIdAsync(Guid id)
     {
-        var user = await repository.GetByIdAsync(id)
+        var user = await _repository.GetByIdAsync(id)
             ?? throw new NotFoundException("User not found.");
 
         return ToDetailDto(user);
@@ -22,12 +31,12 @@ public class UserService(IUserRepository repository, DeviceManagementDbContext c
 
     public async Task<UserDto> CreateAsync(CreateUserRequest request)
     {
-        if (await repository.ExistsByCodeAsync(request.Code))
+        if (await _repository.ExistsByCodeAsync(request.Code))
         {
             throw new BusinessException("User code already exists.");
         }
 
-        if (await repository.ExistsByEmailAsync(request.Email))
+        if (await _repository.ExistsByEmailAsync(request.Email))
         {
             throw new BusinessException("User email already exists.");
         }
@@ -43,15 +52,15 @@ public class UserService(IUserRepository repository, DeviceManagementDbContext c
             CreatedAt = DateTime.UtcNow
         };
 
-        await repository.AddAsync(user);
-        await context.SaveChangesAsync();
+        await _repository.AddAsync(user);
+        await _context.SaveChangesAsync();
 
         return ToDto(user);
     }
 
     public async Task<UserDto> UpdateAsync(Guid id, UpdateUserRequest request)
     {
-        var user = await repository.GetByIdAsync(id)
+        var user = await _repository.GetByIdAsync(id)
             ?? throw new NotFoundException("User not found.");
 
         user.DepartmentId = request.DepartmentId;
@@ -61,25 +70,25 @@ public class UserService(IUserRepository repository, DeviceManagementDbContext c
         user.Status = request.Status;
         user.UpdatedAt = DateTime.UtcNow;
 
-        repository.Update(user);
-        await context.SaveChangesAsync();
+        _repository.Update(user);
+        await _context.SaveChangesAsync();
 
         return ToDto(user);
     }
 
     public async Task DeleteAsync(Guid id)
     {
-        var user = await repository.GetByIdAsync(id)
+        var user = await _repository.GetByIdAsync(id)
             ?? throw new NotFoundException("User not found.");
 
-        if (await repository.HasAssignmentsAsync(id))
+        if (await _repository.HasAssignmentsAsync(id))
         {
             throw new BusinessException("Cannot delete a user that has assignment history.");
         }
 
-        repository.Delete(user);
-        await context.SaveChangesAsync();
-    }
+        _repository.Delete(user);
+        await _context.SaveChangesAsync();
+}
 
     private static UserDto ToDto(User x) =>
         new(x.Id, x.Code, x.FullName, x.Email, x.Status);

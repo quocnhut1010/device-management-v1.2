@@ -4,13 +4,20 @@ using DeviceManagement.Api.Common.Models;
 
 namespace DeviceManagement.Api.Middleware;
 
-public class ExceptionHandlingMiddleware(RequestDelegate next)
+public class ExceptionHandlingMiddleware
 {
+    private readonly RequestDelegate _next;
+
+    public ExceptionHandlingMiddleware(RequestDelegate next)
+    {
+        _next = next;
+    }
+
     public async Task InvokeAsync(HttpContext context)
     {
         try
         {
-            await next(context);
+            await _next(context);
         }
         catch (Exception ex)
         {

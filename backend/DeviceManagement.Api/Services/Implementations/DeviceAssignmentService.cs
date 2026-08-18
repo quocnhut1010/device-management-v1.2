@@ -8,24 +8,37 @@ using DeviceManagement.Api.Services.Interfaces;
 
 namespace DeviceManagement.Api.Services.Implementations;
 
-public class DeviceAssignmentService(
-    IDeviceAssignmentRepository assignmentRepository,
-    IDeviceRepository deviceRepository,
-    IUserRepository userRepository,
-    DeviceManagementDbContext context) : IDeviceAssignmentService
+public class DeviceAssignmentService : IDeviceAssignmentService
 {
+    private readonly IDeviceAssignmentRepository _assignmentRepository;
+    private readonly IDeviceRepository _deviceRepository;
+    private readonly IUserRepository _userRepository;
+    private readonly DeviceManagementDbContext _context;
+
+    public DeviceAssignmentService(
+        IDeviceAssignmentRepository assignmentRepository,
+        IDeviceRepository deviceRepository,
+        IUserRepository userRepository,
+        DeviceManagementDbContext context)
+    {
+        _assignmentRepository = assignmentRepository;
+        _deviceRepository = deviceRepository;
+        _userRepository = userRepository;
+        _context = context;
+    }
+
     public async Task<List<DeviceAssignmentDto>> GetAsync() =>
-        (await assignmentRepository.GetAsync()).Select(ToDto).ToList();
+        (await _assignmentRepository.GetAsync()).Select(ToDto).ToList();
 
     public async Task<DeviceAssignmentDto> CreateAsync(CreateDeviceAssignmentRequest request)
     {
-        var device = await deviceRepository.GetByIdAsync(request.DeviceId)
+        var device = await _deviceRepository.GetByIdAsync(request.DeviceId)
             ?? throw new NotFoundException("Device not found.");
 
-        _ = await userRepository.GetByIdAsync(request.UserId)
+        _ = await _userRepository.GetByIdAsync(request.UserId)
             ?? throw new NotFoundException("User not found.");
 
-        _ = await userRepository.GetByIdAsync(request.AssignedByUserId)
+        _ = await _userRepository.GetByIdAsync(request.AssignedByUserId)
             ?? throw new NotFoundException("Assigned by user not found.");
 
         if (device.Status is DeviceStatus.Disposed or DeviceStatus.UnderRepair)
@@ -33,7 +46,7 @@ public class DeviceAssignmentService(
             throw new BusinessException("Device is not available for assignment.");
         }
 
-        if (await assignmentRepository.HasDeviceAssignmentAsync(request.DeviceId, DeviceAssignmentStatus.Pending, DeviceAssignmentStatus.Accepted))
+        if (await _assignmentRepository.HasDeviceAssignmentAsync(request.DeviceId, DeviceAssignmentStatus.Pending, DeviceAssignmentStatus.Accepted))
         {
             throw new BusinessException("Device already has an active assignment.");
         }
@@ -53,9 +66,9 @@ public class DeviceAssignmentService(
         device.Status = DeviceStatus.PendingAssignment;
         device.UpdatedAt = DateTime.UtcNow;
 
-        await assignmentRepository.AddAsync(assignment);
-        deviceRepository.Update(device);
-        await context.SaveChangesAsync();
+        await _assignmentRepository.AddAsync(assignment);
+        _deviceRepository.Update(device);
+        await _context.SaveChangesAsync();
 
         return ToDto(assignment);
     }
@@ -71,7 +84,7 @@ public class DeviceAssignmentService(
 
     private async Task<DeviceAssignmentDto> ChangeStatusAsync(Guid id, DeviceAssignmentStatus expectedStatus, DeviceAssignmentStatus nextStatus)
     {
-        var assignment = await assignmentRepository.GetByIdAsync(id)
+        var assignment = await _assignmentRepository.GetByIdAsync(id)
             ?? throw new NotFoundException("Device assignment not found.");
 
         if (assignment.Status != expectedStatus)
@@ -91,8 +104,8 @@ public class DeviceAssignmentService(
             : DeviceStatus.Available;
         assignment.Device.UpdatedAt = now;
 
-        assignmentRepository.Update(assignment);
-        await context.SaveChangesAsync();
+        _assignmentRepository.Update(assignment);
+        await _context.SaveChangesAsync();
 
         return ToDto(assignment);
     }

@@ -6,24 +6,31 @@ using Microsoft.EntityFrameworkCore;
 
 namespace DeviceManagement.Api.Repositories.Implementations;
 
-public class DeviceAssignmentRepository(DeviceManagementDbContext context) : IDeviceAssignmentRepository
+public class DeviceAssignmentRepository : IDeviceAssignmentRepository
 {
+    private readonly DeviceManagementDbContext _context;
+
+    public DeviceAssignmentRepository(DeviceManagementDbContext context)
+    {
+        _context = context;
+    }
+
     public Task<List<DeviceAssignment>> GetAsync() =>
-        context.DeviceAssignments
+        _context.DeviceAssignments
             .Include(x => x.Device)
             .Include(x => x.User)
             .AsNoTracking()
             .ToListAsync();
 
     public Task<DeviceAssignment?> GetByIdAsync(Guid id) =>
-        context.DeviceAssignments
+        _context.DeviceAssignments
             .Include(x => x.Device)
             .Include(x => x.User)
             .FirstOrDefaultAsync(x => x.Id == id);
 
     public Task<bool> HasDeviceAssignmentAsync(Guid deviceId, params DeviceAssignmentStatus[] statuses) =>
-        context.DeviceAssignments.AnyAsync(x => x.DeviceId == deviceId && statuses.Contains(x.Status));
+        _context.DeviceAssignments.AnyAsync(x => x.DeviceId == deviceId && statuses.Contains(x.Status));
 
-    public async Task AddAsync(DeviceAssignment assignment) => await context.DeviceAssignments.AddAsync(assignment);
-    public void Update(DeviceAssignment assignment) => context.DeviceAssignments.Update(assignment);
+    public async Task AddAsync(DeviceAssignment assignment) => await _context.DeviceAssignments.AddAsync(assignment);
+    public void Update(DeviceAssignment assignment) => _context.DeviceAssignments.Update(assignment);
 }

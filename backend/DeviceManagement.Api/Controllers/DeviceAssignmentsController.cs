@@ -7,28 +7,35 @@ namespace DeviceManagement.Api.Controllers;
 
 [ApiController]
 [Route("api/device-assignments")]
-public class DeviceAssignmentsController(IDeviceAssignmentService service) : ControllerBase
+public class DeviceAssignmentsController : ControllerBase
 {
+    private readonly IDeviceAssignmentService _service;
+
+    public DeviceAssignmentsController(IDeviceAssignmentService service)
+    {
+        _service = service;
+    }
+
     [HttpGet]
     public async Task<ActionResult<ApiResponse<List<DeviceAssignmentDto>>>> GetAsync() =>
-        Ok(ApiResponse<List<DeviceAssignmentDto>>.Ok(await service.GetAsync()));
+        Ok(ApiResponse<List<DeviceAssignmentDto>>.Ok(await _service.GetAsync()));
 
     [HttpPost]
     public async Task<ActionResult<ApiResponse<DeviceAssignmentDto>>> CreateAsync(CreateDeviceAssignmentRequest request)
     {
-        var result = await service.CreateAsync(request);
+        var result = await _service.CreateAsync(request);
         return Ok(ApiResponse<DeviceAssignmentDto>.Ok(result));
     }
 
     [HttpPost("{id:guid}/accept")]
     public async Task<ActionResult<ApiResponse<DeviceAssignmentDto>>> AcceptAsync(Guid id) =>
-        Ok(ApiResponse<DeviceAssignmentDto>.Ok(await service.AcceptAsync(id)));
+        Ok(ApiResponse<DeviceAssignmentDto>.Ok(await _service.AcceptAsync(id)));
 
     [HttpPost("{id:guid}/reject")]
     public async Task<ActionResult<ApiResponse<DeviceAssignmentDto>>> RejectAsync(Guid id) =>
-        Ok(ApiResponse<DeviceAssignmentDto>.Ok(await service.RejectAsync(id)));
+        Ok(ApiResponse<DeviceAssignmentDto>.Ok(await _service.RejectAsync(id)));
 
     [HttpPost("{id:guid}/return")]
     public async Task<ActionResult<ApiResponse<DeviceAssignmentDto>>> ReturnAsync(Guid id) =>
-        Ok(ApiResponse<DeviceAssignmentDto>.Ok(await service.ReturnAsync(id)));
+        Ok(ApiResponse<DeviceAssignmentDto>.Ok(await _service.ReturnAsync(id)));
 }

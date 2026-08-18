@@ -3,8 +3,12 @@ using Microsoft.EntityFrameworkCore;
 
 namespace DeviceManagement.Api.Data;
 
-public class DeviceManagementDbContext(DbContextOptions<DeviceManagementDbContext> options) : DbContext(options)
+public class DeviceManagementDbContext : DbContext
 {
+    public DeviceManagementDbContext(DbContextOptions<DeviceManagementDbContext> options) : base(options)
+    {
+    }
+
     public DbSet<Department> Departments => Set<Department>();
     public DbSet<User> Users => Set<User>();
     public DbSet<Device> Devices => Set<Device>();
