@@ -1,5 +1,4 @@
 using DeviceManagement.Api.Data;
-using DeviceManagement.Api.DTOs.Departments;
 using DeviceManagement.Api.Models.Entities;
 using DeviceManagement.Api.Repositories.Interfaces;
 using Microsoft.EntityFrameworkCore;
@@ -15,25 +14,22 @@ public class DepartmentRepository : IDepartmentRepository
         _context = context;
     }
 
-    public Task<List<Department>> GetAsync(DepartmentFilterRequest? filter = null)
+    public Task<List<Department>> GetAsync(string? keyword = null, bool? isActive = null)
     {
         var query = _context.Departments
             .Include(x => x.Users)
             .AsNoTracking()
             .AsQueryable();
 
-        if (filter != null)
+        if (!string.IsNullOrWhiteSpace(keyword))
         {
-            if (!string.IsNullOrWhiteSpace(filter.Keyword))
-            {
-                var kw = filter.Keyword.Trim();
-                query = query.Where(x => x.Code.Contains(kw) || x.Name.Contains(kw));
-            }
+            var kw = keyword.Trim();
+            query = query.Where(x => x.Code.Contains(kw) || x.Name.Contains(kw));
+        }
 
-            if (filter.IsActive.HasValue)
-            {
-                query = query.Where(x => x.IsActive == filter.IsActive.Value);
-            }
+        if (isActive.HasValue)
+        {
+            query = query.Where(x => x.IsActive == isActive.Value);
         }
 
         return query.OrderBy(x => x.Code).ToListAsync();
@@ -56,7 +52,4 @@ public class DepartmentRepository : IDepartmentRepository
 
     public void Delete(Department department) =>
         _context.Departments.Remove(department);
-
-    public Task SaveChangesAsync() =>
-        _context.SaveChangesAsync();
 }

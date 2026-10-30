@@ -95,7 +95,4 @@ public class DeviceHistoryRepository : IDeviceHistoryRepository
             TotalItems = totalItems
         };
     }
-
-    public Task SaveChangesAsync() =>
-        _context.SaveChangesAsync();
 }

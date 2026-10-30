@@ -48,7 +48,14 @@ public class DeviceAssignmentService : IDeviceAssignmentService
     {
         var isAdmin = _currentUserService.IsInRole("Admin");
         var currentUserId = _currentUserService.GetRequiredUserId();
-        var result = await _assignmentRepository.GetPagedAsync(request, currentUserId, isAdmin);
+        Guid? targetUserId = isAdmin ? request.UserId : currentUserId;
+
+        var result = await _assignmentRepository.GetPagedAsync(
+            request.DeviceId,
+            targetUserId,
+            request.Status,
+            request.Page,
+            request.PageSize);
 
         return new PagedResult<DeviceAssignmentDto>
         {
@@ -237,7 +244,7 @@ public class DeviceAssignmentService : IDeviceAssignmentService
             CreatedAt = DateTime.UtcNow
         });
 
-        await _deviceHistoryRepository.SaveChangesAsync();
+        await _unitOfWork.SaveChangesAsync();
     }
 
     private static string GetHistoryAction(DeviceAssignmentStatus status) =>

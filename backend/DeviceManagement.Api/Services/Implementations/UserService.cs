@@ -12,13 +12,16 @@ public class UserService : IUserService
 {
     private readonly IUserRepository _repository;
     private readonly IDepartmentRepository _departmentRepository;
+    private readonly IUnitOfWork _unitOfWork;
 
     public UserService(
         IUserRepository repository,
-        IDepartmentRepository departmentRepository)
+        IDepartmentRepository departmentRepository,
+        IUnitOfWork unitOfWork)
     {
         _repository = repository;
         _departmentRepository = departmentRepository;
+        _unitOfWork = unitOfWork;
     }
 
     public async Task<List<UserDto>> GetAsync() =>
@@ -26,7 +29,7 @@ public class UserService : IUserService
 
     public async Task<PagedResult<UserDto>> GetAsync(UserFilterRequest request)
     {
-        var pagedUsers = await _repository.GetPagedAsync(request);
+        var pagedUsers = await _repository.GetPagedAsync(request.Keyword, request.Status, request.Page, request.PageSize);
 
         return new PagedResult<UserDto>
         {
@@ -83,7 +86,7 @@ public class UserService : IUserService
         };
 
         await _repository.AddAsync(user);
-        await _repository.SaveChangesAsync();
+        await _unitOfWork.SaveChangesAsync();
 
         user.Department = department;
         return ToDto(user);
@@ -114,7 +117,7 @@ public class UserService : IUserService
         user.UpdatedAt = DateTime.UtcNow;
 
         _repository.Update(user);
-        await _repository.SaveChangesAsync();
+        await _unitOfWork.SaveChangesAsync();
 
         user.Department = department;
         return ToDto(user);
@@ -131,7 +134,7 @@ public class UserService : IUserService
         }
 
         _repository.Delete(user);
-        await _repository.SaveChangesAsync();
+        await _unitOfWork.SaveChangesAsync();
     }
 
     private static UserDto ToDto(User x) =>

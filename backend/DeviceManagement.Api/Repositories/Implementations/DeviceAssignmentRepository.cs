@@ -1,6 +1,5 @@
 using DeviceManagement.Api.Common.Models;
 using DeviceManagement.Api.Data;
-using DeviceManagement.Api.DTOs.DeviceAssignments;
 using DeviceManagement.Api.Models.Entities;
 using DeviceManagement.Api.Models.Enums;
 using DeviceManagement.Api.Repositories.Interfaces;
@@ -33,12 +32,14 @@ public class DeviceAssignmentRepository : IDeviceAssignmentRepository
     }
 
     public async Task<PagedResult<DeviceAssignment>> GetPagedAsync(
-        DeviceAssignmentFilterRequest request,
-        Guid? currentUserId,
-        bool isAdmin)
+        Guid? deviceId,
+        Guid? userId,
+        DeviceAssignmentStatus? status,
+        int page,
+        int pageSize)
     {
-        var page = request.Page < 1 ? 1 : request.Page;
-        var pageSize = request.PageSize < 1 ? 20 : Math.Min(request.PageSize, 100);
+        page = page < 1 ? 1 : page;
+        pageSize = pageSize < 1 ? 20 : Math.Min(pageSize, 100);
 
         var query = _context.DeviceAssignments
             .Include(x => x.Device)
@@ -47,26 +48,19 @@ public class DeviceAssignmentRepository : IDeviceAssignmentRepository
             .OrderByDescending(x => x.AssignedAt)
             .AsQueryable();
 
-        if (!isAdmin)
+        if (userId.HasValue)
         {
-            if (currentUserId.HasValue)
-            {
-                query = query.Where(x => x.UserId == currentUserId.Value);
-            }
-        }
-        else if (request.UserId.HasValue)
-        {
-            query = query.Where(x => x.UserId == request.UserId.Value);
+            query = query.Where(x => x.UserId == userId.Value);
         }
 
-        if (request.DeviceId.HasValue)
+        if (deviceId.HasValue)
         {
-            query = query.Where(x => x.DeviceId == request.DeviceId.Value);
+            query = query.Where(x => x.DeviceId == deviceId.Value);
         }
 
-        if (request.Status.HasValue)
+        if (status.HasValue)
         {
-            query = query.Where(x => x.Status == request.Status.Value);
+            query = query.Where(x => x.Status == status.Value);
         }
 
         var totalItems = await query.CountAsync();
@@ -138,7 +132,4 @@ public class DeviceAssignmentRepository : IDeviceAssignmentRepository
 
     public void Update(DeviceAssignment assignment) =>
         _context.DeviceAssignments.Update(assignment);
-
-    public Task SaveChangesAsync() =>
-        _context.SaveChangesAsync();
 }

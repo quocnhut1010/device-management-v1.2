@@ -1,5 +1,4 @@
 using DeviceManagement.Api.Common.Models;
-using DeviceManagement.Api.DTOs.DeviceAssignments;
 using DeviceManagement.Api.Models.Entities;
 using DeviceManagement.Api.Models.Enums;
 
@@ -8,7 +7,7 @@ namespace DeviceManagement.Api.Repositories.Interfaces;
 public interface IDeviceAssignmentRepository
 {
     Task<List<DeviceAssignment>> GetAsync(Guid? userId = null);
-    Task<PagedResult<DeviceAssignment>> GetPagedAsync(DeviceAssignmentFilterRequest request, Guid? currentUserId, bool isAdmin);
+    Task<PagedResult<DeviceAssignment>> GetPagedAsync(Guid? deviceId, Guid? userId, DeviceAssignmentStatus? status, int page, int pageSize);
     Task<DeviceAssignment?> GetByIdAsync(Guid id);
     Task<bool> HasDeviceAssignmentAsync(Guid deviceId, params DeviceAssignmentStatus[] statuses);
     Task<bool> HasOtherAcceptedAssignmentAsync(Guid deviceId, Guid excludeAssignmentId);
@@ -20,5 +19,4 @@ public interface IDeviceAssignmentRepository
     Task<int> GetUserAssignmentCountAsync(Guid userId);
     Task AddAsync(DeviceAssignment assignment);
     void Update(DeviceAssignment assignment);
-    Task SaveChangesAsync();
 }

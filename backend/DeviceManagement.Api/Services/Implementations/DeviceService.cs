@@ -41,7 +41,7 @@ public class DeviceService : IDeviceService
 
     public async Task<PagedResult<DeviceDto>> GetAsync(DeviceFilterRequest request)
     {
-        var result = await _repository.GetPagedAsync(request);
+        var result = await _repository.GetPagedAsync(request.Keyword, request.Status, request.Page, request.PageSize);
 
         return new PagedResult<DeviceDto>
         {
@@ -381,7 +381,7 @@ public class DeviceService : IDeviceService
             CreatedAt = DateTime.UtcNow
         });
 
-        await _deviceHistoryRepository.SaveChangesAsync();
+        await _unitOfWork.SaveChangesAsync();
     }
 
     private static DeviceDto ToDto(Device x) =>

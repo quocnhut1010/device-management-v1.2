@@ -1,5 +1,4 @@
 using DeviceManagement.Api.Data;
-using DeviceManagement.Api.DTOs.DeviceModels;
 using DeviceManagement.Api.Models.Entities;
 using DeviceManagement.Api.Repositories.Interfaces;
 using Microsoft.EntityFrameworkCore;
@@ -15,7 +14,7 @@ public class DeviceModelRepository : IDeviceModelRepository
         _context = context;
     }
 
-    public Task<List<DeviceModel>> GetAsync(DeviceModelFilterRequest? filter = null)
+    public Task<List<DeviceModel>> GetAsync(string? keyword = null, Guid? deviceTypeId = null, bool? isActive = null)
     {
         var query = _context.DeviceModels
             .Include(x => x.DeviceType)
@@ -23,23 +22,20 @@ public class DeviceModelRepository : IDeviceModelRepository
             .AsNoTracking()
             .AsQueryable();
 
-        if (filter != null)
+        if (deviceTypeId.HasValue)
         {
-            if (filter.DeviceTypeId.HasValue)
-            {
-                query = query.Where(x => x.DeviceTypeId == filter.DeviceTypeId.Value);
-            }
+            query = query.Where(x => x.DeviceTypeId == deviceTypeId.Value);
+        }
 
-            if (!string.IsNullOrWhiteSpace(filter.Keyword))
-            {
-                var kw = filter.Keyword.Trim();
-                query = query.Where(x => x.Code.Contains(kw) || x.Name.Contains(kw) || (x.Manufacturer != null && x.Manufacturer.Contains(kw)));
-            }
+        if (!string.IsNullOrWhiteSpace(keyword))
+        {
+            var kw = keyword.Trim();
+            query = query.Where(x => x.Code.Contains(kw) || x.Name.Contains(kw) || (x.Manufacturer != null && x.Manufacturer.Contains(kw)));
+        }
 
-            if (filter.IsActive.HasValue)
-            {
-                query = query.Where(x => x.IsActive == filter.IsActive.Value);
-            }
+        if (isActive.HasValue)
+        {
+            query = query.Where(x => x.IsActive == isActive.Value);
         }
 
         return query.OrderBy(x => x.Name).ToListAsync();
@@ -65,7 +61,4 @@ public class DeviceModelRepository : IDeviceModelRepository
 
     public void Delete(DeviceModel deviceModel) =>
         _context.DeviceModels.Remove(deviceModel);
-
-    public Task SaveChangesAsync() =>
-        _context.SaveChangesAsync();
 }

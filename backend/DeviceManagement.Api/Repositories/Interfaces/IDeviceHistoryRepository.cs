@@ -9,5 +9,4 @@ public interface IDeviceHistoryRepository
     Task DeleteByDeviceIdAsync(Guid deviceId);
     Task<PagedResult<DeviceHistory>> GetPagedByDeviceIdAsync(Guid deviceId, int page, int pageSize);
     Task<PagedResult<DeviceHistory>> GetAllPagedAsync(Guid? deviceId, List<Guid>? allowedDeviceIds, int page, int pageSize);
-    Task SaveChangesAsync();
 }

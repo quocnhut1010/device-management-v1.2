@@ -9,15 +9,17 @@ namespace DeviceManagement.Api.Services.Implementations;
 public class DeviceTypeService : IDeviceTypeService
 {
     private readonly IDeviceTypeRepository _repository;
+    private readonly IUnitOfWork _unitOfWork;
 
-    public DeviceTypeService(IDeviceTypeRepository repository)
+    public DeviceTypeService(IDeviceTypeRepository repository, IUnitOfWork unitOfWork)
     {
         _repository = repository;
+        _unitOfWork = unitOfWork;
     }
 
     public async Task<List<DeviceTypeDto>> GetAsync(DeviceTypeFilterRequest? filter = null)
     {
-        var types = await _repository.GetAsync(filter);
+        var types = await _repository.GetAsync(filter?.Keyword, filter?.IsActive);
         return types.Select(ToDto).ToList();
     }
 
@@ -48,7 +50,7 @@ public class DeviceTypeService : IDeviceTypeService
         };
 
         await _repository.AddAsync(item);
-        await _repository.SaveChangesAsync();
+        await _unitOfWork.SaveChangesAsync();
 
         return ToDto(item);
     }
@@ -71,7 +73,7 @@ public class DeviceTypeService : IDeviceTypeService
         item.UpdatedAt = DateTime.UtcNow;
 
         _repository.Update(item);
-        await _repository.SaveChangesAsync();
+        await _unitOfWork.SaveChangesAsync();
 
         return ToDto(item);
     }
@@ -85,7 +87,7 @@ public class DeviceTypeService : IDeviceTypeService
         item.UpdatedAt = DateTime.UtcNow;
 
         _repository.Update(item);
-        await _repository.SaveChangesAsync();
+        await _unitOfWork.SaveChangesAsync();
 
         return ToDto(item);
     }
@@ -106,7 +108,7 @@ public class DeviceTypeService : IDeviceTypeService
         }
 
         _repository.Delete(item);
-        await _repository.SaveChangesAsync();
+        await _unitOfWork.SaveChangesAsync();
     }
 
     private static DeviceTypeDto ToDto(DeviceType x) =>

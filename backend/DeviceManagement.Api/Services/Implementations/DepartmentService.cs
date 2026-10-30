@@ -9,15 +9,17 @@ namespace DeviceManagement.Api.Services.Implementations;
 public class DepartmentService : IDepartmentService
 {
     private readonly IDepartmentRepository _repository;
+    private readonly IUnitOfWork _unitOfWork;
 
-    public DepartmentService(IDepartmentRepository repository)
+    public DepartmentService(IDepartmentRepository repository, IUnitOfWork unitOfWork)
     {
         _repository = repository;
+        _unitOfWork = unitOfWork;
     }
 
     public async Task<List<DepartmentDto>> GetAsync(DepartmentFilterRequest? filter = null)
     {
-        var departments = await _repository.GetAsync(filter);
+        var departments = await _repository.GetAsync(filter?.Keyword, filter?.IsActive);
         return departments.Select(ToDto).ToList();
     }
 
@@ -47,7 +49,7 @@ public class DepartmentService : IDepartmentService
         };
 
         await _repository.AddAsync(department);
-        await _repository.SaveChangesAsync();
+        await _unitOfWork.SaveChangesAsync();
 
         return ToDto(department);
     }
@@ -69,7 +71,7 @@ public class DepartmentService : IDepartmentService
         department.UpdatedAt = DateTime.UtcNow;
 
         _repository.Update(department);
-        await _repository.SaveChangesAsync();
+        await _unitOfWork.SaveChangesAsync();
 
         return ToDto(department);
     }
@@ -83,7 +85,7 @@ public class DepartmentService : IDepartmentService
         department.UpdatedAt = DateTime.UtcNow;
 
         _repository.Update(department);
-        await _repository.SaveChangesAsync();
+        await _unitOfWork.SaveChangesAsync();
 
         return ToDto(department);
     }
@@ -99,7 +101,7 @@ public class DepartmentService : IDepartmentService
         }
 
         _repository.Delete(department);
-        await _repository.SaveChangesAsync();
+        await _unitOfWork.SaveChangesAsync();
     }
 
     private static DepartmentDto ToDto(Department d) =>

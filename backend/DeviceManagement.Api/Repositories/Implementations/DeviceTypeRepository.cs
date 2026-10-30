@@ -1,5 +1,4 @@
 using DeviceManagement.Api.Data;
-using DeviceManagement.Api.DTOs.DeviceTypes;
 using DeviceManagement.Api.Models.Entities;
 using DeviceManagement.Api.Repositories.Interfaces;
 using Microsoft.EntityFrameworkCore;
@@ -15,7 +14,7 @@ public class DeviceTypeRepository : IDeviceTypeRepository
         _context = context;
     }
 
-    public Task<List<DeviceType>> GetAsync(DeviceTypeFilterRequest? filter = null)
+    public Task<List<DeviceType>> GetAsync(string? keyword = null, bool? isActive = null)
     {
         var query = _context.DeviceTypes
             .Include(x => x.DeviceModels)
@@ -23,18 +22,15 @@ public class DeviceTypeRepository : IDeviceTypeRepository
             .AsNoTracking()
             .AsQueryable();
 
-        if (filter != null)
+        if (!string.IsNullOrWhiteSpace(keyword))
         {
-            if (!string.IsNullOrWhiteSpace(filter.Keyword))
-            {
-                var kw = filter.Keyword.Trim();
-                query = query.Where(x => x.Code.Contains(kw) || x.Name.Contains(kw));
-            }
+            var kw = keyword.Trim();
+            query = query.Where(x => x.Code.Contains(kw) || x.Name.Contains(kw));
+        }
 
-            if (filter.IsActive.HasValue)
-            {
-                query = query.Where(x => x.IsActive == filter.IsActive.Value);
-            }
+        if (isActive.HasValue)
+        {
+            query = query.Where(x => x.IsActive == isActive.Value);
         }
 
         return query.OrderBy(x => x.Name).ToListAsync();
@@ -63,7 +59,4 @@ public class DeviceTypeRepository : IDeviceTypeRepository
 
     public void Delete(DeviceType deviceType) =>
         _context.DeviceTypes.Remove(deviceType);
-
-    public Task SaveChangesAsync() =>
-        _context.SaveChangesAsync();
 }

@@ -10,18 +10,21 @@ public class DeviceModelService : IDeviceModelService
 {
     private readonly IDeviceModelRepository _repository;
     private readonly IDeviceTypeRepository _deviceTypeRepository;
+    private readonly IUnitOfWork _unitOfWork;
 
     public DeviceModelService(
         IDeviceModelRepository repository,
-        IDeviceTypeRepository deviceTypeRepository)
+        IDeviceTypeRepository deviceTypeRepository,
+        IUnitOfWork unitOfWork)
     {
         _repository = repository;
         _deviceTypeRepository = deviceTypeRepository;
+        _unitOfWork = unitOfWork;
     }
 
     public async Task<List<DeviceModelDto>> GetAsync(DeviceModelFilterRequest? filter = null)
     {
-        var models = await _repository.GetAsync(filter);
+        var models = await _repository.GetAsync(filter?.Keyword, filter?.DeviceTypeId, filter?.IsActive);
         return models.Select(ToDto).ToList();
     }
 
@@ -62,7 +65,7 @@ public class DeviceModelService : IDeviceModelService
         };
 
         await _repository.AddAsync(item);
-        await _repository.SaveChangesAsync();
+        await _unitOfWork.SaveChangesAsync();
 
         item.DeviceType = deviceType;
         return ToDto(item);
@@ -96,7 +99,7 @@ public class DeviceModelService : IDeviceModelService
         item.UpdatedAt = DateTime.UtcNow;
 
         _repository.Update(item);
-        await _repository.SaveChangesAsync();
+        await _unitOfWork.SaveChangesAsync();
 
         item.DeviceType = deviceType;
         return ToDto(item);
@@ -111,7 +114,7 @@ public class DeviceModelService : IDeviceModelService
         item.UpdatedAt = DateTime.UtcNow;
 
         _repository.Update(item);
-        await _repository.SaveChangesAsync();
+        await _unitOfWork.SaveChangesAsync();
 
         return ToDto(item);
     }
@@ -127,7 +130,7 @@ public class DeviceModelService : IDeviceModelService
         }
 
         _repository.Delete(item);
-        await _repository.SaveChangesAsync();
+        await _unitOfWork.SaveChangesAsync();
     }
 
     private static DeviceModelDto ToDto(DeviceModel x) =>

@@ -1,7 +1,7 @@
 using DeviceManagement.Api.Common.Models;
 using DeviceManagement.Api.Data;
-using DeviceManagement.Api.DTOs.Users;
 using DeviceManagement.Api.Models.Entities;
+using DeviceManagement.Api.Models.Enums;
 using DeviceManagement.Api.Repositories.Interfaces;
 using Microsoft.EntityFrameworkCore;
 
@@ -23,25 +23,25 @@ public class UserRepository : IUserRepository
             .OrderBy(x => x.Code)
             .ToListAsync();
 
-    public async Task<PagedResult<User>> GetPagedAsync(UserFilterRequest request)
+    public async Task<PagedResult<User>> GetPagedAsync(string? keyword, UserStatus? status, int page, int pageSize)
     {
-        var page = request.Page < 1 ? 1 : request.Page;
-        var pageSize = request.PageSize < 1 ? 20 : Math.Min(request.PageSize, 100);
+        page = page < 1 ? 1 : page;
+        pageSize = pageSize < 1 ? 20 : Math.Min(pageSize, 100);
 
         var query = _context.Users
             .Include(x => x.Department)
             .AsNoTracking()
             .AsQueryable();
 
-        if (!string.IsNullOrWhiteSpace(request.Keyword))
+        if (!string.IsNullOrWhiteSpace(keyword))
         {
-            var keyword = request.Keyword.Trim();
-            query = query.Where(x => x.Code.Contains(keyword) || x.FullName.Contains(keyword) || x.Email.Contains(keyword));
+            var kw = keyword.Trim();
+            query = query.Where(x => x.Code.Contains(kw) || x.FullName.Contains(kw) || x.Email.Contains(kw));
         }
 
-        if (request.Status.HasValue)
+        if (status.HasValue)
         {
-            query = query.Where(x => x.Status == request.Status.Value);
+            query = query.Where(x => x.Status == status.Value);
         }
 
         var totalItems = await query.CountAsync();
@@ -90,7 +90,4 @@ public class UserRepository : IUserRepository
 
     public void Delete(User user) =>
         _context.Users.Remove(user);
-
-    public Task SaveChangesAsync() =>
-        _context.SaveChangesAsync();
 }

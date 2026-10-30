@@ -1,6 +1,5 @@
 using DeviceManagement.Api.Common.Models;
 using DeviceManagement.Api.Data;
-using DeviceManagement.Api.DTOs.Devices;
 using DeviceManagement.Api.Models.Entities;
 using DeviceManagement.Api.Models.Enums;
 using DeviceManagement.Api.Repositories.Interfaces;
@@ -25,10 +24,10 @@ public class DeviceRepository : IDeviceRepository
             .OrderBy(x => x.Code)
             .ToListAsync();
 
-    public async Task<PagedResult<Device>> GetPagedAsync(DeviceFilterRequest request)
+    public async Task<PagedResult<Device>> GetPagedAsync(string? keyword, DeviceStatus? status, int page, int pageSize)
     {
-        var page = request.Page < 1 ? 1 : request.Page;
-        var pageSize = request.PageSize < 1 ? 20 : Math.Min(request.PageSize, 100);
+        page = page < 1 ? 1 : page;
+        pageSize = pageSize < 1 ? 20 : Math.Min(pageSize, 100);
 
         var query = _context.Devices
             .Include(x => x.DeviceType)
@@ -36,15 +35,15 @@ public class DeviceRepository : IDeviceRepository
             .AsNoTracking()
             .AsQueryable();
 
-        if (!string.IsNullOrWhiteSpace(request.Keyword))
+        if (!string.IsNullOrWhiteSpace(keyword))
         {
-            var keyword = request.Keyword.Trim();
-            query = query.Where(x => x.Code.Contains(keyword) || x.Name.Contains(keyword) || x.SerialNumber.Contains(keyword));
+            var kw = keyword.Trim();
+            query = query.Where(x => x.Code.Contains(kw) || x.Name.Contains(kw) || x.SerialNumber.Contains(kw));
         }
 
-        if (request.Status.HasValue)
+        if (status.HasValue)
         {
-            query = query.Where(x => x.Status == request.Status.Value);
+            query = query.Where(x => x.Status == status.Value);
         }
 
         var totalItems = await query.CountAsync();
@@ -92,7 +91,4 @@ public class DeviceRepository : IDeviceRepository
 
     public void Delete(Device device) =>
         _context.Devices.Remove(device);
-
-    public Task SaveChangesAsync() =>
-        _context.SaveChangesAsync();
 }

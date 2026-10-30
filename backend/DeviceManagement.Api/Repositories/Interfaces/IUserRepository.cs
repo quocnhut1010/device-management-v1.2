@@ -1,13 +1,13 @@
 using DeviceManagement.Api.Common.Models;
-using DeviceManagement.Api.DTOs.Users;
 using DeviceManagement.Api.Models.Entities;
+using DeviceManagement.Api.Models.Enums;
 
 namespace DeviceManagement.Api.Repositories.Interfaces;
 
 public interface IUserRepository
 {
     Task<List<User>> GetAsync();
-    Task<PagedResult<User>> GetPagedAsync(UserFilterRequest request);
+    Task<PagedResult<User>> GetPagedAsync(string? keyword, UserStatus? status, int page, int pageSize);
     Task<User?> GetByIdAsync(Guid id);
     Task<User?> GetByEmailAsync(string email);
     Task<bool> ExistsByCodeAsync(string code);
@@ -17,5 +17,4 @@ public interface IUserRepository
     Task AddAsync(User user);
     void Update(User user);
     void Delete(User user);
-    Task SaveChangesAsync();
 }
