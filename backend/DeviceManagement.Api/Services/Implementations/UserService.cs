@@ -1,24 +1,24 @@
 using DeviceManagement.Api.Common.Exceptions;
 using DeviceManagement.Api.Common.Models;
-using DeviceManagement.Api.Data;
 using DeviceManagement.Api.DTOs.Users;
 using DeviceManagement.Api.Models.Entities;
 using DeviceManagement.Api.Models.Enums;
 using DeviceManagement.Api.Repositories.Interfaces;
 using DeviceManagement.Api.Services.Interfaces;
-using Microsoft.EntityFrameworkCore;
 
 namespace DeviceManagement.Api.Services.Implementations;
 
 public class UserService : IUserService
 {
     private readonly IUserRepository _repository;
-    private readonly DeviceManagementDbContext _context;
+    private readonly IDepartmentRepository _departmentRepository;
 
-    public UserService(IUserRepository repository, DeviceManagementDbContext context)
+    public UserService(
+        IUserRepository repository,
+        IDepartmentRepository departmentRepository)
     {
         _repository = repository;
-        _context = context;
+        _departmentRepository = departmentRepository;
     }
 
     public async Task<List<UserDto>> GetAsync() =>
@@ -26,39 +26,14 @@ public class UserService : IUserService
 
     public async Task<PagedResult<UserDto>> GetAsync(UserFilterRequest request)
     {
-        var page = request.Page < 1 ? 1 : request.Page;
-        var pageSize = request.PageSize < 1 ? 20 : Math.Min(request.PageSize, 100);
-
-        var query = _context.Users
-            .Include(x => x.Department)
-            .AsNoTracking()
-            .AsQueryable();
-
-        if (!string.IsNullOrWhiteSpace(request.Keyword))
-        {
-            var keyword = request.Keyword.Trim();
-            query = query.Where(x => x.Code.Contains(keyword) || x.FullName.Contains(keyword) || x.Email.Contains(keyword));
-        }
-
-        if (request.Status.HasValue)
-        {
-            query = query.Where(x => x.Status == request.Status.Value);
-        }
-
-        var totalItems = await query.CountAsync();
-        var items = await query
-            .OrderBy(x => x.Code)
-            .Skip((page - 1) * pageSize)
-            .Take(pageSize)
-            .Select(x => ToDto(x))
-            .ToListAsync();
+        var pagedUsers = await _repository.GetPagedAsync(request);
 
         return new PagedResult<UserDto>
         {
-            Items = items,
-            Page = page,
-            PageSize = pageSize,
-            TotalItems = totalItems
+            Items = pagedUsers.Items.Select(ToDto).ToList(),
+            Page = pagedUsers.Page,
+            PageSize = pagedUsers.PageSize,
+            TotalItems = pagedUsers.TotalItems
         };
     }
 
@@ -85,7 +60,7 @@ public class UserService : IUserService
         Department? department = null;
         if (request.DepartmentId.HasValue)
         {
-            department = await _context.Departments.FirstOrDefaultAsync(x => x.Id == request.DepartmentId.Value)
+            department = await _departmentRepository.GetByIdAsync(request.DepartmentId.Value)
                 ?? throw new NotFoundException("Phòng ban không tồn tại.");
 
             if (!department.IsActive)
@@ -108,7 +83,7 @@ public class UserService : IUserService
         };
 
         await _repository.AddAsync(user);
-        await _context.SaveChangesAsync();
+        await _repository.SaveChangesAsync();
 
         user.Department = department;
         return ToDto(user);
@@ -122,7 +97,7 @@ public class UserService : IUserService
         Department? department = null;
         if (request.DepartmentId.HasValue)
         {
-            department = await _context.Departments.FirstOrDefaultAsync(x => x.Id == request.DepartmentId.Value)
+            department = await _departmentRepository.GetByIdAsync(request.DepartmentId.Value)
                 ?? throw new NotFoundException("Phòng ban không tồn tại.");
 
             if (!department.IsActive)
@@ -139,7 +114,7 @@ public class UserService : IUserService
         user.UpdatedAt = DateTime.UtcNow;
 
         _repository.Update(user);
-        await _context.SaveChangesAsync();
+        await _repository.SaveChangesAsync();
 
         user.Department = department;
         return ToDto(user);
@@ -156,7 +131,7 @@ public class UserService : IUserService
         }
 
         _repository.Delete(user);
-        await _context.SaveChangesAsync();
+        await _repository.SaveChangesAsync();
     }
 
     private static UserDto ToDto(User x) =>

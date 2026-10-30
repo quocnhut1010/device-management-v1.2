@@ -1,10 +1,8 @@
 using DeviceManagement.Api.Common.Exceptions;
-using DeviceManagement.Api.Data;
 using DeviceManagement.Api.DTOs.DeviceModels;
 using DeviceManagement.Api.Models.Entities;
 using DeviceManagement.Api.Repositories.Interfaces;
 using DeviceManagement.Api.Services.Interfaces;
-using Microsoft.EntityFrameworkCore;
 
 namespace DeviceManagement.Api.Services.Implementations;
 
@@ -12,16 +10,13 @@ public class DeviceModelService : IDeviceModelService
 {
     private readonly IDeviceModelRepository _repository;
     private readonly IDeviceTypeRepository _deviceTypeRepository;
-    private readonly DeviceManagementDbContext _context;
 
     public DeviceModelService(
         IDeviceModelRepository repository,
-        IDeviceTypeRepository deviceTypeRepository,
-        DeviceManagementDbContext context)
+        IDeviceTypeRepository deviceTypeRepository)
     {
         _repository = repository;
         _deviceTypeRepository = deviceTypeRepository;
-        _context = context;
     }
 
     public async Task<List<DeviceModelDto>> GetAsync(DeviceModelFilterRequest? filter = null)
@@ -67,7 +62,7 @@ public class DeviceModelService : IDeviceModelService
         };
 
         await _repository.AddAsync(item);
-        await _context.SaveChangesAsync();
+        await _repository.SaveChangesAsync();
 
         item.DeviceType = deviceType;
         return ToDto(item);
@@ -101,7 +96,7 @@ public class DeviceModelService : IDeviceModelService
         item.UpdatedAt = DateTime.UtcNow;
 
         _repository.Update(item);
-        await _context.SaveChangesAsync();
+        await _repository.SaveChangesAsync();
 
         item.DeviceType = deviceType;
         return ToDto(item);
@@ -116,7 +111,7 @@ public class DeviceModelService : IDeviceModelService
         item.UpdatedAt = DateTime.UtcNow;
 
         _repository.Update(item);
-        await _context.SaveChangesAsync();
+        await _repository.SaveChangesAsync();
 
         return ToDto(item);
     }
@@ -132,7 +127,7 @@ public class DeviceModelService : IDeviceModelService
         }
 
         _repository.Delete(item);
-        await _context.SaveChangesAsync();
+        await _repository.SaveChangesAsync();
     }
 
     private static DeviceModelDto ToDto(DeviceModel x) =>

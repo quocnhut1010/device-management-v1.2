@@ -1,29 +1,39 @@
 using DeviceManagement.Api.Common.Exceptions;
 using DeviceManagement.Api.Common.Models;
-using DeviceManagement.Api.Data;
 using DeviceManagement.Api.DTOs.Devices;
 using DeviceManagement.Api.Models.Entities;
 using DeviceManagement.Api.Models.Enums;
 using DeviceManagement.Api.Repositories.Interfaces;
 using DeviceManagement.Api.Services.Interfaces;
-using Microsoft.EntityFrameworkCore;
 
 namespace DeviceManagement.Api.Services.Implementations;
 
 public class DeviceService : IDeviceService
 {
     private readonly IDeviceRepository _repository;
+    private readonly IDeviceTypeRepository _deviceTypeRepository;
+    private readonly IDeviceModelRepository _deviceModelRepository;
+    private readonly IDeviceAssignmentRepository _deviceAssignmentRepository;
+    private readonly IDeviceHistoryRepository _deviceHistoryRepository;
+    private readonly IUnitOfWork _unitOfWork;
     private readonly ICurrentUserService _currentUserService;
-    private readonly DeviceManagementDbContext _context;
 
     public DeviceService(
         IDeviceRepository repository,
-        ICurrentUserService currentUserService,
-        DeviceManagementDbContext context)
+        IDeviceTypeRepository deviceTypeRepository,
+        IDeviceModelRepository deviceModelRepository,
+        IDeviceAssignmentRepository deviceAssignmentRepository,
+        IDeviceHistoryRepository deviceHistoryRepository,
+        IUnitOfWork unitOfWork,
+        ICurrentUserService currentUserService)
     {
         _repository = repository;
+        _deviceTypeRepository = deviceTypeRepository;
+        _deviceModelRepository = deviceModelRepository;
+        _deviceAssignmentRepository = deviceAssignmentRepository;
+        _deviceHistoryRepository = deviceHistoryRepository;
+        _unitOfWork = unitOfWork;
         _currentUserService = currentUserService;
-        _context = context;
     }
 
     public async Task<List<DeviceDto>> GetAsync() =>
@@ -31,40 +41,14 @@ public class DeviceService : IDeviceService
 
     public async Task<PagedResult<DeviceDto>> GetAsync(DeviceFilterRequest request)
     {
-        var page = request.Page < 1 ? 1 : request.Page;
-        var pageSize = request.PageSize < 1 ? 20 : Math.Min(request.PageSize, 100);
-
-        var query = _context.Devices
-            .Include(x => x.DeviceType)
-            .Include(x => x.DeviceModel)
-            .AsNoTracking()
-            .AsQueryable();
-
-        if (!string.IsNullOrWhiteSpace(request.Keyword))
-        {
-            var keyword = request.Keyword.Trim();
-            query = query.Where(x => x.Code.Contains(keyword) || x.Name.Contains(keyword) || x.SerialNumber.Contains(keyword));
-        }
-
-        if (request.Status.HasValue)
-        {
-            query = query.Where(x => x.Status == request.Status.Value);
-        }
-
-        var totalItems = await query.CountAsync();
-        var items = await query
-            .OrderBy(x => x.Code)
-            .Skip((page - 1) * pageSize)
-            .Take(pageSize)
-            .Select(x => ToDto(x))
-            .ToListAsync();
+        var result = await _repository.GetPagedAsync(request);
 
         return new PagedResult<DeviceDto>
         {
-            Items = items,
-            Page = page,
-            PageSize = pageSize,
-            TotalItems = totalItems
+            Items = result.Items.Select(ToDto).ToList(),
+            Page = result.Page,
+            PageSize = result.PageSize,
+            TotalItems = result.TotalItems
         };
     }
 
@@ -93,7 +77,7 @@ public class DeviceService : IDeviceService
 
         if (request.DeviceTypeId.HasValue)
         {
-            deviceType = await _context.DeviceTypes.FirstOrDefaultAsync(x => x.Id == request.DeviceTypeId.Value)
+            deviceType = await _deviceTypeRepository.GetByIdAsync(request.DeviceTypeId.Value)
                 ?? throw new NotFoundException("Loại thiết bị không tồn tại.");
 
             if (!deviceType.IsActive)
@@ -104,7 +88,7 @@ public class DeviceService : IDeviceService
 
         if (request.DeviceModelId.HasValue)
         {
-            deviceModel = await _context.DeviceModels.Include(m => m.DeviceType).FirstOrDefaultAsync(x => x.Id == request.DeviceModelId.Value)
+            deviceModel = await _deviceModelRepository.GetByIdAsync(request.DeviceModelId.Value)
                 ?? throw new NotFoundException("Dòng máy (Model) không tồn tại.");
 
             if (!deviceModel.IsActive)
@@ -140,10 +124,10 @@ public class DeviceService : IDeviceService
             CreatedAt = DateTime.UtcNow
         };
 
-        await using var transaction = await _context.Database.BeginTransactionAsync();
+        await using var transaction = await _unitOfWork.BeginTransactionAsync();
 
         await _repository.AddAsync(device);
-        await _context.SaveChangesAsync();
+        await _unitOfWork.SaveChangesAsync();
 
         await WriteHistoryAsync(
             device.Id,
@@ -171,7 +155,7 @@ public class DeviceService : IDeviceService
 
         if (request.DeviceTypeId.HasValue)
         {
-            deviceType = await _context.DeviceTypes.FirstOrDefaultAsync(x => x.Id == request.DeviceTypeId.Value)
+            deviceType = await _deviceTypeRepository.GetByIdAsync(request.DeviceTypeId.Value)
                 ?? throw new NotFoundException("Loại thiết bị không tồn tại.");
 
             if (!deviceType.IsActive)
@@ -182,7 +166,7 @@ public class DeviceService : IDeviceService
 
         if (request.DeviceModelId.HasValue)
         {
-            deviceModel = await _context.DeviceModels.Include(m => m.DeviceType).FirstOrDefaultAsync(x => x.Id == request.DeviceModelId.Value)
+            deviceModel = await _deviceModelRepository.GetByIdAsync(request.DeviceModelId.Value)
                 ?? throw new NotFoundException("Dòng máy (Model) không tồn tại.");
 
             if (!deviceModel.IsActive)
@@ -225,10 +209,10 @@ public class DeviceService : IDeviceService
         device.PurchasedDate = request.PurchasedDate;
         device.UpdatedAt = DateTime.UtcNow;
 
-        await using var transaction = await _context.Database.BeginTransactionAsync();
+        await using var transaction = await _unitOfWork.BeginTransactionAsync();
 
         _repository.Update(device);
-        await _context.SaveChangesAsync();
+        await _unitOfWork.SaveChangesAsync();
 
         await WriteHistoryAsync(
             device.Id,
@@ -256,14 +240,10 @@ public class DeviceService : IDeviceService
             throw new BusinessException("Cannot delete a device that has assignment history.");
         }
 
-        var histories = await _context.DeviceHistories.Where(x => x.DeviceId == id).ToListAsync();
-        if (histories.Count > 0)
-        {
-            _context.DeviceHistories.RemoveRange(histories);
-        }
+        await _deviceHistoryRepository.DeleteByDeviceIdAsync(id);
 
         _repository.Delete(device);
-        await _context.SaveChangesAsync();
+        await _unitOfWork.SaveChangesAsync();
     }
 
     public async Task RecalculateStatusAsync(Guid id)
@@ -281,7 +261,7 @@ public class DeviceService : IDeviceService
         device.Status = nextStatus;
         device.UpdatedAt = DateTime.UtcNow;
         _repository.Update(device);
-        await _context.SaveChangesAsync();
+        await _unitOfWork.SaveChangesAsync();
 
         await WriteHistoryAsync(
             device.Id,
@@ -302,31 +282,18 @@ public class DeviceService : IDeviceService
 
         if (!isAdmin)
         {
-            var hasAccess = await _context.DeviceAssignments
-                .AnyAsync(a => a.DeviceId == deviceId && a.UserId == currentUserId);
-
+            var hasAccess = await _deviceAssignmentRepository.HasUserAssignmentForDeviceAsync(deviceId, currentUserId);
             if (!hasAccess)
             {
                 throw new ForbiddenException("You are not allowed to view the history for this device.");
             }
         }
 
-        page = page < 1 ? 1 : page;
-        pageSize = pageSize < 1 ? 20 : Math.Min(pageSize, 100);
+        var result = await _deviceHistoryRepository.GetPagedByDeviceIdAsync(deviceId, page, pageSize);
 
-        var query = _context.DeviceHistories
-            .AsNoTracking()
-            .Include(x => x.CreatedByUser)
-            .Include(x => x.Device)
-            .Where(x => x.DeviceId == deviceId)
-            .OrderByDescending(x => x.CreatedAt)
-            .ThenByDescending(x => x.Id);
-
-        var totalItems = await query.CountAsync();
-        var items = await query
-            .Skip((page - 1) * pageSize)
-            .Take(pageSize)
-            .Select(x => new DeviceHistoryDto(
+        return new PagedResult<DeviceHistoryDto>
+        {
+            Items = result.Items.Select(x => new DeviceHistoryDto(
                 x.Id,
                 x.DeviceId,
                 x.Action,
@@ -336,15 +303,11 @@ public class DeviceService : IDeviceService
                 x.CreatedByUserId,
                 x.CreatedByUser != null ? x.CreatedByUser.FullName : null,
                 x.CreatedAt,
-                x.Device != null ? $"{x.Device.Code} - {x.Device.Name}" : null))
-            .ToListAsync();
-
-        return new PagedResult<DeviceHistoryDto>
-        {
-            Items = items,
-            Page = page,
-            PageSize = pageSize,
-            TotalItems = totalItems
+                x.Device != null ? $"{x.Device.Code} - {x.Device.Name}" : null
+            )).ToList(),
+            Page = result.Page,
+            PageSize = result.PageSize,
+            TotalItems = result.TotalItems
         };
     }
 
@@ -353,38 +316,17 @@ public class DeviceService : IDeviceService
         var isAdmin = _currentUserService.IsInRole("Admin");
         var currentUserId = _currentUserService.GetRequiredUserId();
 
-        page = page < 1 ? 1 : page;
-        pageSize = pageSize < 1 ? 20 : Math.Min(pageSize, 100);
-
-        var query = _context.DeviceHistories
-            .AsNoTracking()
-            .Include(x => x.CreatedByUser)
-            .Include(x => x.Device)
-            .AsQueryable();
-
+        List<Guid>? allowedDeviceIds = null;
         if (!isAdmin)
         {
-            var allowedDeviceIds = await _context.DeviceAssignments
-                .Where(a => a.UserId == currentUserId)
-                .Select(a => a.DeviceId)
-                .Distinct()
-                .ToListAsync();
-
-            query = query.Where(x => allowedDeviceIds.Contains(x.DeviceId));
+            allowedDeviceIds = await _deviceAssignmentRepository.GetDistinctDeviceIdsByUserIdAsync(currentUserId);
         }
 
-        if (deviceId.HasValue)
+        var result = await _deviceHistoryRepository.GetAllPagedAsync(deviceId, allowedDeviceIds, page, pageSize);
+
+        return new PagedResult<DeviceHistoryDto>
         {
-            query = query.Where(x => x.DeviceId == deviceId.Value);
-        }
-
-        query = query.OrderByDescending(x => x.CreatedAt).ThenByDescending(x => x.Id);
-
-        var totalItems = await query.CountAsync();
-        var items = await query
-            .Skip((page - 1) * pageSize)
-            .Take(pageSize)
-            .Select(x => new DeviceHistoryDto(
+            Items = result.Items.Select(x => new DeviceHistoryDto(
                 x.Id,
                 x.DeviceId,
                 x.Action,
@@ -394,24 +336,17 @@ public class DeviceService : IDeviceService
                 x.CreatedByUserId,
                 x.CreatedByUser != null ? x.CreatedByUser.FullName : null,
                 x.CreatedAt,
-                x.Device != null ? $"{x.Device.Code} - {x.Device.Name}" : null))
-            .ToListAsync();
-
-        return new PagedResult<DeviceHistoryDto>
-        {
-            Items = items,
-            Page = page,
-            PageSize = pageSize,
-            TotalItems = totalItems
+                x.Device != null ? $"{x.Device.Code} - {x.Device.Name}" : null
+            )).ToList(),
+            Page = result.Page,
+            PageSize = result.PageSize,
+            TotalItems = result.TotalItems
         };
     }
 
     private async Task<DeviceStatus> DetermineStatusAsync(Guid deviceId, DeviceStatus currentStatus)
     {
-        var assignments = await _context.DeviceAssignments
-            .Where(x => x.DeviceId == deviceId)
-            .OrderByDescending(x => x.AssignedAt)
-            .ToListAsync();
+        var assignments = await _deviceAssignmentRepository.GetByDeviceIdAsync(deviceId);
 
         if (assignments.Any(x => x.Status == DeviceAssignmentStatus.Accepted))
         {
@@ -434,7 +369,7 @@ public class DeviceService : IDeviceService
         DeviceStatus? newStatus,
         string description)
     {
-        await _context.DeviceHistories.AddAsync(new DeviceHistory
+        await _deviceHistoryRepository.AddAsync(new DeviceHistory
         {
             Id = Guid.NewGuid(),
             DeviceId = deviceId,
@@ -446,7 +381,7 @@ public class DeviceService : IDeviceService
             CreatedAt = DateTime.UtcNow
         });
 
-        await _context.SaveChangesAsync();
+        await _deviceHistoryRepository.SaveChangesAsync();
     }
 
     private static DeviceDto ToDto(Device x) =>

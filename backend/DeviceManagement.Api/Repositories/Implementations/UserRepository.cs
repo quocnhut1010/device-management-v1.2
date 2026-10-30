@@ -1,4 +1,6 @@
+using DeviceManagement.Api.Common.Models;
 using DeviceManagement.Api.Data;
+using DeviceManagement.Api.DTOs.Users;
 using DeviceManagement.Api.Models.Entities;
 using DeviceManagement.Api.Repositories.Interfaces;
 using Microsoft.EntityFrameworkCore;
@@ -21,6 +23,43 @@ public class UserRepository : IUserRepository
             .OrderBy(x => x.Code)
             .ToListAsync();
 
+    public async Task<PagedResult<User>> GetPagedAsync(UserFilterRequest request)
+    {
+        var page = request.Page < 1 ? 1 : request.Page;
+        var pageSize = request.PageSize < 1 ? 20 : Math.Min(request.PageSize, 100);
+
+        var query = _context.Users
+            .Include(x => x.Department)
+            .AsNoTracking()
+            .AsQueryable();
+
+        if (!string.IsNullOrWhiteSpace(request.Keyword))
+        {
+            var keyword = request.Keyword.Trim();
+            query = query.Where(x => x.Code.Contains(keyword) || x.FullName.Contains(keyword) || x.Email.Contains(keyword));
+        }
+
+        if (request.Status.HasValue)
+        {
+            query = query.Where(x => x.Status == request.Status.Value);
+        }
+
+        var totalItems = await query.CountAsync();
+        var items = await query
+            .OrderBy(x => x.Code)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .ToListAsync();
+
+        return new PagedResult<User>
+        {
+            Items = items,
+            Page = page,
+            PageSize = pageSize,
+            TotalItems = totalItems
+        };
+    }
+
     public Task<User?> GetByIdAsync(Guid id) =>
         _context.Users
             .Include(x => x.Department)
@@ -39,6 +78,9 @@ public class UserRepository : IUserRepository
 
     public Task<bool> HasAssignmentsAsync(Guid id) =>
         _context.DeviceAssignments.AnyAsync(x => x.UserId == id || x.AssignedByUserId == id);
+
+    public Task<int> GetCountAsync() =>
+        _context.Users.CountAsync();
 
     public async Task AddAsync(User user) =>
         await _context.Users.AddAsync(user);

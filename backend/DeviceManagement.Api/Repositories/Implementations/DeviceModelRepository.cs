@@ -65,4 +65,7 @@ public class DeviceModelRepository : IDeviceModelRepository
 
     public void Delete(DeviceModel deviceModel) =>
         _context.DeviceModels.Remove(deviceModel);
+
+    public Task SaveChangesAsync() =>
+        _context.SaveChangesAsync();
 }

@@ -15,6 +15,8 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IDepartmentRepository, DepartmentRepository>();
         services.AddScoped<IDeviceTypeRepository, DeviceTypeRepository>();
         services.AddScoped<IDeviceModelRepository, DeviceModelRepository>();
+        services.AddScoped<IDeviceHistoryRepository, DeviceHistoryRepository>();
+        services.AddScoped<IUnitOfWork, UnitOfWork>();
 
         services.AddScoped<IDeviceService, DeviceService>();
         services.AddScoped<IUserService, UserService>();

@@ -1,5 +1,4 @@
 using DeviceManagement.Api.Common.Exceptions;
-using DeviceManagement.Api.Data;
 using DeviceManagement.Api.DTOs.DeviceTypes;
 using DeviceManagement.Api.Models.Entities;
 using DeviceManagement.Api.Repositories.Interfaces;
@@ -10,12 +9,10 @@ namespace DeviceManagement.Api.Services.Implementations;
 public class DeviceTypeService : IDeviceTypeService
 {
     private readonly IDeviceTypeRepository _repository;
-    private readonly DeviceManagementDbContext _context;
 
-    public DeviceTypeService(IDeviceTypeRepository repository, DeviceManagementDbContext context)
+    public DeviceTypeService(IDeviceTypeRepository repository)
     {
         _repository = repository;
-        _context = context;
     }
 
     public async Task<List<DeviceTypeDto>> GetAsync(DeviceTypeFilterRequest? filter = null)
@@ -51,7 +48,7 @@ public class DeviceTypeService : IDeviceTypeService
         };
 
         await _repository.AddAsync(item);
-        await _context.SaveChangesAsync();
+        await _repository.SaveChangesAsync();
 
         return ToDto(item);
     }
@@ -74,7 +71,7 @@ public class DeviceTypeService : IDeviceTypeService
         item.UpdatedAt = DateTime.UtcNow;
 
         _repository.Update(item);
-        await _context.SaveChangesAsync();
+        await _repository.SaveChangesAsync();
 
         return ToDto(item);
     }
@@ -88,7 +85,7 @@ public class DeviceTypeService : IDeviceTypeService
         item.UpdatedAt = DateTime.UtcNow;
 
         _repository.Update(item);
-        await _context.SaveChangesAsync();
+        await _repository.SaveChangesAsync();
 
         return ToDto(item);
     }
@@ -109,7 +106,7 @@ public class DeviceTypeService : IDeviceTypeService
         }
 
         _repository.Delete(item);
-        await _context.SaveChangesAsync();
+        await _repository.SaveChangesAsync();
     }
 
     private static DeviceTypeDto ToDto(DeviceType x) =>

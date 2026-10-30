@@ -12,4 +12,5 @@ public interface IDepartmentRepository
     Task AddAsync(Department department);
     void Update(Department department);
     void Delete(Department department);
+    Task SaveChangesAsync();
 }

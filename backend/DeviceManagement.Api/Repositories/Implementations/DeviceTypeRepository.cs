@@ -63,4 +63,7 @@ public class DeviceTypeRepository : IDeviceTypeRepository
 
     public void Delete(DeviceType deviceType) =>
         _context.DeviceTypes.Remove(deviceType);
+
+    public Task SaveChangesAsync() =>
+        _context.SaveChangesAsync();
 }

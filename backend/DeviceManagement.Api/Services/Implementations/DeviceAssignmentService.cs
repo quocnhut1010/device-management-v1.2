@@ -1,23 +1,22 @@
 using DeviceManagement.Api.Common.Exceptions;
 using DeviceManagement.Api.Common.Models;
-using DeviceManagement.Api.Data;
 using DeviceManagement.Api.DTOs.DeviceAssignments;
 using DeviceManagement.Api.Models.Entities;
 using DeviceManagement.Api.Models.Enums;
 using DeviceManagement.Api.Repositories.Interfaces;
 using DeviceManagement.Api.Services.Interfaces;
-using Microsoft.EntityFrameworkCore;
 
 namespace DeviceManagement.Api.Services.Implementations;
 
 public class DeviceAssignmentService : IDeviceAssignmentService
 {
     private readonly IDeviceAssignmentRepository _assignmentRepository;
-    private readonly ICurrentUserService _currentUserService;
     private readonly IDeviceRepository _deviceRepository;
     private readonly IDeviceService _deviceService;
     private readonly IUserRepository _userRepository;
-    private readonly DeviceManagementDbContext _context;
+    private readonly IDeviceHistoryRepository _deviceHistoryRepository;
+    private readonly IUnitOfWork _unitOfWork;
+    private readonly ICurrentUserService _currentUserService;
 
     public DeviceAssignmentService(
         IDeviceAssignmentRepository assignmentRepository,
@@ -25,77 +24,38 @@ public class DeviceAssignmentService : IDeviceAssignmentService
         IDeviceRepository deviceRepository,
         IDeviceService deviceService,
         IUserRepository userRepository,
-        DeviceManagementDbContext context)
+        IDeviceHistoryRepository deviceHistoryRepository,
+        IUnitOfWork unitOfWork)
     {
         _assignmentRepository = assignmentRepository;
         _currentUserService = currentUserService;
         _deviceRepository = deviceRepository;
         _deviceService = deviceService;
         _userRepository = userRepository;
-        _context = context;
+        _deviceHistoryRepository = deviceHistoryRepository;
+        _unitOfWork = unitOfWork;
     }
 
     public async Task<List<DeviceAssignmentDto>> GetAsync()
     {
-        var query = _context.DeviceAssignments.AsNoTracking();
         var isAdmin = _currentUserService.IsInRole("Admin");
-
-        if (!isAdmin)
-        {
-            var currentUserId = _currentUserService.GetRequiredUserId();
-            query = query.Where(x => x.UserId == currentUserId);
-        }
-
-        return (await query.OrderByDescending(x => x.AssignedAt).ToListAsync()).Select(ToDto).ToList();
+        Guid? userId = isAdmin ? null : _currentUserService.GetRequiredUserId();
+        var assignments = await _assignmentRepository.GetAsync(userId);
+        return assignments.Select(ToDto).ToList();
     }
 
     public async Task<PagedResult<DeviceAssignmentDto>> GetAsync(DeviceAssignmentFilterRequest request)
     {
-        var page = request.Page < 1 ? 1 : request.Page;
-        var pageSize = request.PageSize < 1 ? 20 : Math.Min(request.PageSize, 100);
-
-        var query = _context.DeviceAssignments
-            .AsNoTracking()
-            .OrderByDescending(x => x.AssignedAt)
-            .AsQueryable();
-
         var isAdmin = _currentUserService.IsInRole("Admin");
         var currentUserId = _currentUserService.GetRequiredUserId();
-
-        if (!isAdmin)
-        {
-            // Employee can view only assignments belonging to the authenticated user.
-            // Query parameters must not allow an Employee to view another user's assignments.
-            query = query.Where(x => x.UserId == currentUserId);
-        }
-        else if (request.UserId.HasValue)
-        {
-            query = query.Where(x => x.UserId == request.UserId.Value);
-        }
-
-        if (request.DeviceId.HasValue)
-        {
-            query = query.Where(x => x.DeviceId == request.DeviceId.Value);
-        }
-
-        if (request.Status.HasValue)
-        {
-            query = query.Where(x => x.Status == request.Status.Value);
-        }
-
-        var totalItems = await query.CountAsync();
-        var items = await query
-            .Skip((page - 1) * pageSize)
-            .Take(pageSize)
-            .Select(x => ToDto(x))
-            .ToListAsync();
+        var result = await _assignmentRepository.GetPagedAsync(request, currentUserId, isAdmin);
 
         return new PagedResult<DeviceAssignmentDto>
         {
-            Items = items,
-            Page = page,
-            PageSize = pageSize,
-            TotalItems = totalItems
+            Items = result.Items.Select(ToDto).ToList(),
+            Page = result.Page,
+            PageSize = result.PageSize,
+            TotalItems = result.TotalItems
         };
     }
 
@@ -134,10 +94,10 @@ public class DeviceAssignmentService : IDeviceAssignmentService
             CreatedAt = DateTime.UtcNow
         };
 
-        await using var transaction = await _context.Database.BeginTransactionAsync();
+        await using var transaction = await _unitOfWork.BeginTransactionAsync();
 
         await _assignmentRepository.AddAsync(assignment);
-        await _context.SaveChangesAsync();
+        await _unitOfWork.SaveChangesAsync();
         await _deviceService.RecalculateStatusAsync(device.Id);
 
         var currentDevice = await _deviceRepository.GetByIdAsync(device.Id)
@@ -185,10 +145,10 @@ public class DeviceAssignmentService : IDeviceAssignmentService
         assignment.ReturnedAt = nextStatus == DeviceAssignmentStatus.Returned ? now : assignment.ReturnedAt;
         assignment.RevokedAt = nextStatus == DeviceAssignmentStatus.Revoked ? now : assignment.RevokedAt;
 
-        await using var transaction = await _context.Database.BeginTransactionAsync();
+        await using var transaction = await _unitOfWork.BeginTransactionAsync();
 
         _assignmentRepository.Update(assignment);
-        await _context.SaveChangesAsync();
+        await _unitOfWork.SaveChangesAsync();
         await _deviceService.RecalculateStatusAsync(assignment.DeviceId);
 
         var currentDevice = await _deviceRepository.GetByIdAsync(assignment.DeviceId)
@@ -233,10 +193,7 @@ public class DeviceAssignmentService : IDeviceAssignmentService
                 throw new BusinessException("Device is not available for acceptance.");
             }
 
-            var hasOtherAcceptedAssignment = await _context.DeviceAssignments.AnyAsync(x =>
-                x.DeviceId == assignment.DeviceId &&
-                x.Id != assignment.Id &&
-                x.Status == DeviceAssignmentStatus.Accepted);
+            var hasOtherAcceptedAssignment = await _assignmentRepository.HasOtherAcceptedAssignmentAsync(assignment.DeviceId, assignment.Id);
 
             if (hasOtherAcceptedAssignment)
             {
@@ -251,9 +208,7 @@ public class DeviceAssignmentService : IDeviceAssignmentService
                 throw new BusinessException("Device is not currently in use.");
             }
 
-            var activeAcceptedAssignment = await _context.DeviceAssignments
-                .AsNoTracking()
-                .FirstOrDefaultAsync(x => x.DeviceId == assignment.DeviceId && x.Status == DeviceAssignmentStatus.Accepted);
+            var activeAcceptedAssignment = await _assignmentRepository.GetActiveAcceptedAssignmentAsync(assignment.DeviceId);
 
             if (activeAcceptedAssignment is null || activeAcceptedAssignment.Id != assignment.Id)
             {
@@ -270,7 +225,7 @@ public class DeviceAssignmentService : IDeviceAssignmentService
         DeviceStatus? newStatus,
         string description)
     {
-        await _context.DeviceHistories.AddAsync(new DeviceHistory
+        await _deviceHistoryRepository.AddAsync(new DeviceHistory
         {
             Id = Guid.NewGuid(),
             DeviceId = deviceId,
@@ -282,7 +237,7 @@ public class DeviceAssignmentService : IDeviceAssignmentService
             CreatedAt = DateTime.UtcNow
         });
 
-        await _context.SaveChangesAsync();
+        await _deviceHistoryRepository.SaveChangesAsync();
     }
 
     private static string GetHistoryAction(DeviceAssignmentStatus status) =>

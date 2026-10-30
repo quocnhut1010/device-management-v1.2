@@ -13,4 +13,5 @@ public interface IDeviceTypeRepository
     Task AddAsync(DeviceType deviceType);
     void Update(DeviceType deviceType);
     void Delete(DeviceType deviceType);
+    Task SaveChangesAsync();
 }

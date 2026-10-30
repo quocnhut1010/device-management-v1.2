@@ -56,4 +56,7 @@ public class DepartmentRepository : IDepartmentRepository
 
     public void Delete(Department department) =>
         _context.Departments.Remove(department);
+
+    public Task SaveChangesAsync() =>
+        _context.SaveChangesAsync();
 }

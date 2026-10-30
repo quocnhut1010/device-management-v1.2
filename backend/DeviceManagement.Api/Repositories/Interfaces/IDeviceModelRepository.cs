@@ -12,4 +12,5 @@ public interface IDeviceModelRepository
     Task AddAsync(DeviceModel deviceModel);
     void Update(DeviceModel deviceModel);
     void Delete(DeviceModel deviceModel);
+    Task SaveChangesAsync();
 }

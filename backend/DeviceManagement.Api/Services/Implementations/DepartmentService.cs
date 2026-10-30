@@ -1,22 +1,18 @@
 using DeviceManagement.Api.Common.Exceptions;
-using DeviceManagement.Api.Data;
 using DeviceManagement.Api.DTOs.Departments;
 using DeviceManagement.Api.Models.Entities;
 using DeviceManagement.Api.Repositories.Interfaces;
 using DeviceManagement.Api.Services.Interfaces;
-using Microsoft.EntityFrameworkCore;
 
 namespace DeviceManagement.Api.Services.Implementations;
 
 public class DepartmentService : IDepartmentService
 {
     private readonly IDepartmentRepository _repository;
-    private readonly DeviceManagementDbContext _context;
 
-    public DepartmentService(IDepartmentRepository repository, DeviceManagementDbContext context)
+    public DepartmentService(IDepartmentRepository repository)
     {
         _repository = repository;
-        _context = context;
     }
 
     public async Task<List<DepartmentDto>> GetAsync(DepartmentFilterRequest? filter = null)
@@ -51,7 +47,7 @@ public class DepartmentService : IDepartmentService
         };
 
         await _repository.AddAsync(department);
-        await _context.SaveChangesAsync();
+        await _repository.SaveChangesAsync();
 
         return ToDto(department);
     }
@@ -73,7 +69,7 @@ public class DepartmentService : IDepartmentService
         department.UpdatedAt = DateTime.UtcNow;
 
         _repository.Update(department);
-        await _context.SaveChangesAsync();
+        await _repository.SaveChangesAsync();
 
         return ToDto(department);
     }
@@ -87,7 +83,7 @@ public class DepartmentService : IDepartmentService
         department.UpdatedAt = DateTime.UtcNow;
 
         _repository.Update(department);
-        await _context.SaveChangesAsync();
+        await _repository.SaveChangesAsync();
 
         return ToDto(department);
     }
@@ -103,7 +99,7 @@ public class DepartmentService : IDepartmentService
         }
 
         _repository.Delete(department);
-        await _context.SaveChangesAsync();
+        await _repository.SaveChangesAsync();
     }
 
     private static DepartmentDto ToDto(Department d) =>
