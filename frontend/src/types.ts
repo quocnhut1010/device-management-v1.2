@@ -57,6 +57,18 @@ export type User = {
   updatedAt?: string | null
 }
 
+export type UserDto = {
+  id: string
+  fullName: string
+  email: string
+  role?: string
+  position?: string
+  departmentName?: string
+  departmentId?: string | null
+  updatedAt?: string | null
+  createdAt?: string
+}
+
 export type Assignment = {
   id: string
   deviceId: string

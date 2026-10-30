@@ -1,0 +1,14 @@
+import * as React from 'react'
+
+export interface LabelProps extends React.LabelHTMLAttributes<HTMLLabelElement> {}
+
+export const Label = React.forwardRef<HTMLLabelElement, LabelProps>(
+  ({ className = '', children, ...props }, ref) => {
+    return (
+      <label ref={ref} className={`ui-label ${className}`.trim()} {...props}>
+        {children}
+      </label>
+    )
+  }
+)
+Label.displayName = 'Label'
