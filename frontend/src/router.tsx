@@ -7,6 +7,8 @@ import { DevicesPage } from './pages/DevicesPage'
 import { UsersPage } from './pages/UsersPage'
 import { AssignmentsPage } from './pages/AssignmentsPage'
 import { DeviceHistoryPage } from './pages/DeviceHistoryPage'
+import { DepartmentsPage } from './pages/DepartmentsPage'
+import { DeviceCatalogPage } from './pages/DeviceCatalogPage'
 import { PlaceholderPage } from './pages/PlaceholderPage'
 
 function ProtectedRoute() {
@@ -38,19 +40,12 @@ export function AppRouter() {
           <Route path="/dashboard" element={<DashboardPage />} />
           <Route path="/devices" element={<DevicesPage />} />
           <Route path="/device-history" element={<DeviceHistoryPage />} />
+          <Route path="/device-categories" element={<DeviceCatalogPage />} />
           <Route path="/assignments" element={<AssignmentsPage />} />
           <Route path="/users" element={<UsersPage />} />
+          <Route path="/departments" element={<DepartmentsPage />} />
 
           {/* Các module ứng viên tương lai theo Roadmap */}
-          <Route
-            path="/device-categories"
-            element={
-              <PlaceholderPage
-                title="Loại & Model thiết bị"
-                moduleName="Quản lý danh mục loại máy & Model"
-              />
-            }
-          />
           <Route
             path="/incidents"
             element={
@@ -66,15 +61,6 @@ export function AppRouter() {
               <PlaceholderPage
                 title="Lệnh sửa chữa"
                 moduleName="Quản lý sửa chữa & Bảo trì (Repairs)"
-              />
-            }
-          />
-          <Route
-            path="/departments"
-            element={
-              <PlaceholderPage
-                title="Quản lý Phòng ban"
-                moduleName="Quản lý cơ cấu phòng ban"
               />
             }
           />

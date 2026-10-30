@@ -16,5 +16,15 @@ public class DeviceConfiguration : IEntityTypeConfiguration<Device>
         builder.Property(x => x.Model).HasMaxLength(100);
         builder.HasIndex(x => x.Code).IsUnique();
         builder.HasIndex(x => x.SerialNumber).IsUnique();
+
+        builder.HasOne(x => x.DeviceType)
+            .WithMany(x => x.Devices)
+            .HasForeignKey(x => x.DeviceTypeId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.HasOne(x => x.DeviceModel)
+            .WithMany(x => x.Devices)
+            .HasForeignKey(x => x.DeviceModelId)
+            .OnDelete(DeleteBehavior.Restrict);
     }
 }

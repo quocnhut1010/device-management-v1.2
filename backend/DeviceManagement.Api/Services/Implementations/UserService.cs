@@ -3,6 +3,7 @@ using DeviceManagement.Api.Common.Models;
 using DeviceManagement.Api.Data;
 using DeviceManagement.Api.DTOs.Users;
 using DeviceManagement.Api.Models.Entities;
+using DeviceManagement.Api.Models.Enums;
 using DeviceManagement.Api.Repositories.Interfaces;
 using DeviceManagement.Api.Services.Interfaces;
 using Microsoft.EntityFrameworkCore;
@@ -28,7 +29,10 @@ public class UserService : IUserService
         var page = request.Page < 1 ? 1 : request.Page;
         var pageSize = request.PageSize < 1 ? 20 : Math.Min(request.PageSize, 100);
 
-        var query = _context.Users.AsNoTracking().AsQueryable();
+        var query = _context.Users
+            .Include(x => x.Department)
+            .AsNoTracking()
+            .AsQueryable();
 
         if (!string.IsNullOrWhiteSpace(request.Keyword))
         {
@@ -78,20 +82,35 @@ public class UserService : IUserService
             throw new BusinessException("User email already exists.");
         }
 
+        Department? department = null;
+        if (request.DepartmentId.HasValue)
+        {
+            department = await _context.Departments.FirstOrDefaultAsync(x => x.Id == request.DepartmentId.Value)
+                ?? throw new NotFoundException("Phòng ban không tồn tại.");
+
+            if (!department.IsActive)
+            {
+                throw new BusinessException("Phòng ban đã bị vô hiệu hóa hoặc không hợp lệ.");
+            }
+        }
+
         var user = new User
         {
             Id = Guid.NewGuid(),
-            DepartmentId = request.DepartmentId,
+            DepartmentId = department?.Id,
             Code = request.Code,
             FullName = request.FullName,
             Email = request.Email,
             PhoneNumber = request.PhoneNumber,
+            Role = "Employee",
+            Status = UserStatus.Active,
             CreatedAt = DateTime.UtcNow
         };
 
         await _repository.AddAsync(user);
         await _context.SaveChangesAsync();
 
+        user.Department = department;
         return ToDto(user);
     }
 
@@ -100,7 +119,19 @@ public class UserService : IUserService
         var user = await _repository.GetByIdAsync(id)
             ?? throw new NotFoundException("User not found.");
 
-        user.DepartmentId = request.DepartmentId;
+        Department? department = null;
+        if (request.DepartmentId.HasValue)
+        {
+            department = await _context.Departments.FirstOrDefaultAsync(x => x.Id == request.DepartmentId.Value)
+                ?? throw new NotFoundException("Phòng ban không tồn tại.");
+
+            if (!department.IsActive)
+            {
+                throw new BusinessException("Phòng ban đã bị vô hiệu hóa hoặc không hợp lệ.");
+            }
+        }
+
+        user.DepartmentId = department?.Id;
         user.FullName = request.FullName;
         user.Email = request.Email;
         user.PhoneNumber = request.PhoneNumber;
@@ -110,6 +141,7 @@ public class UserService : IUserService
         _repository.Update(user);
         await _context.SaveChangesAsync();
 
+        user.Department = department;
         return ToDto(user);
     }
 
@@ -125,12 +157,11 @@ public class UserService : IUserService
 
         _repository.Delete(user);
         await _context.SaveChangesAsync();
-}
+    }
 
     private static UserDto ToDto(User x) =>
-        new(x.Id, x.Code, x.FullName, x.Email, x.Status);
+        new(x.Id, x.Code, x.FullName, x.Email, x.Status, x.DepartmentId, x.Department?.Name, x.Role);
 
     private static UserDetailDto ToDetailDto(User x) =>
-        new(x.Id, x.DepartmentId, x.Code, x.FullName, x.Email, x.PhoneNumber, x.Status, x.CreatedAt, x.UpdatedAt);
+        new(x.Id, x.DepartmentId, x.Code, x.FullName, x.Email, x.PhoneNumber, x.Status, x.CreatedAt, x.UpdatedAt, x.Department?.Name, x.Role);
 }
-

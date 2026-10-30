@@ -8,9 +8,10 @@ import {
   AlertCircle,
   X,
   UserPlus,
+  Building,
 } from 'lucide-react'
-import { getUsers, createUser, deleteUser } from '../services/resources'
-import type { User, UserStatus } from '../types'
+import { getUsers, createUser, deleteUser, getDepartments } from '../services/resources'
+import type { Department, User, UserStatus } from '../types'
 import { Pagination } from '../components/Pagination'
 import { useAuth } from '../contexts/AuthContext'
 
@@ -25,6 +26,7 @@ export function UsersPage() {
 
   const [items, setItems] = useState<User[]>([])
   const [allItemsForStats, setAllItemsForStats] = useState<User[]>([])
+  const [departments, setDepartments] = useState<Department[]>([])
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(10)
   const [totalItems, setTotalItems] = useState(0)
@@ -44,10 +46,12 @@ export function UsersPage() {
     fullName: '',
     email: '',
     phoneNumber: '',
+    departmentId: '',
   })
 
   useEffect(() => {
     void loadStatsData()
+    void loadDepartments()
   }, [])
 
   useEffect(() => {
@@ -56,6 +60,15 @@ export function UsersPage() {
     }, 250)
     return () => clearTimeout(id)
   }, [page, keyword, status])
+
+  async function loadDepartments() {
+    try {
+      const data = await getDepartments({ isActive: true })
+      setDepartments(data)
+    } catch {
+      // quiet
+    }
+  }
 
   async function loadStatsData() {
     try {
@@ -101,9 +114,15 @@ export function UsersPage() {
     setSubmitting(true)
     setError('')
     try {
-      await createUser(createForm)
+      await createUser({
+        code: createForm.code.trim().toUpperCase(),
+        fullName: createForm.fullName.trim(),
+        email: createForm.email.trim(),
+        phoneNumber: createForm.phoneNumber.trim() || undefined,
+        departmentId: createForm.departmentId || undefined,
+      })
       setOpenCreateModal(false)
-      setCreateForm({ code: '', fullName: '', email: '', phoneNumber: '' })
+      setCreateForm({ code: '', fullName: '', email: '', phoneNumber: '', departmentId: '' })
       await Promise.all([loadData(), loadStatsData()])
     } catch (err: unknown) {
       const msg =
@@ -179,25 +198,18 @@ export function UsersPage() {
         <div className="stat-card">
           <div className="stat-card-title">Quản trị viên</div>
           <div className="stat-card-value" style={{ color: '#2563eb' }}>{stats.adminCount}</div>
-          <div className="stat-card-sub">Quyền Admin</div>
+          <div className="stat-card-sub">Quyền hệ thống Admin</div>
         </div>
 
         <div className="stat-card">
-          <div className="stat-card-title">Nhân viên</div>
-          <div className="stat-card-value" style={{ color: '#7c3aed' }}>{stats.employeeCount}</div>
-          <div className="stat-card-sub">Quyền tiếp nhận thiết bị</div>
+          <div className="stat-card-title">Nhân viên thông thường</div>
+          <div className="stat-card-value" style={{ color: '#d97706' }}>{stats.employeeCount}</div>
+          <div className="stat-card-sub">Người sử dụng thiết bị</div>
         </div>
       </div>
 
-      {/* Main Table Card */}
+      {/* Table Card */}
       <div className="card">
-        <div className="card-header-clean">
-          <div className="card-title">Danh sách người dùng</div>
-          <div className="card-description">
-            Hiển thị danh sách tài khoản nhân viên trong hệ thống
-          </div>
-        </div>
-
         {/* Toolbar */}
         <div className="toolbar">
           <div className="search-input-wrapper">
@@ -239,6 +251,7 @@ export function UsersPage() {
                 <tr>
                   <th>Mã NV</th>
                   <th>Họ và tên</th>
+                  <th>Phòng ban</th>
                   <th>Email</th>
                   <th>Số điện thoại</th>
                   <th>Trạng thái</th>
@@ -262,6 +275,12 @@ export function UsersPage() {
                             {initial}
                           </div>
                           <span style={{ fontWeight: 500 }}>{item.fullName}</span>
+                        </div>
+                      </td>
+                      <td>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <Building size={14} style={{ color: '#64748b' }} />
+                          <span>{item.departmentName || '—'}</span>
                         </div>
                       </td>
                       <td style={{ color: 'var(--muted-foreground)' }}>{item.email}</td>
@@ -296,7 +315,7 @@ export function UsersPage() {
                 })}
                 {items.length === 0 && (
                   <tr>
-                    <td colSpan={6} style={{ textAlign: 'center', padding: '40px 0', color: 'var(--muted-foreground)' }}>
+                    <td colSpan={7} style={{ textAlign: 'center', padding: '40px 0', color: 'var(--muted-foreground)' }}>
                       <Users size={32} style={{ margin: '0 auto 8px auto', opacity: 0.5 }} />
                       <div>Không tìm thấy người dùng nào.</div>
                     </td>
@@ -331,7 +350,23 @@ export function UsersPage() {
             </div>
 
             <form onSubmit={handleCreate}>
-              <div className="modal-body">
+              <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                <div className="form-group">
+                  <label className="form-label">Phòng ban</label>
+                  <select
+                    className="input"
+                    value={createForm.departmentId}
+                    onChange={e => setCreateForm({ ...createForm, departmentId: e.target.value })}
+                  >
+                    <option value="">-- Chọn phòng ban --</option>
+                    {departments.map(d => (
+                      <option key={d.id} value={d.id}>
+                        {d.name} ({d.code})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
                 <div className="form-group">
                   <label className="form-label">Mã nhân viên *</label>
                   <input
@@ -424,6 +459,12 @@ export function UsersPage() {
 
                 <span className="detail-label">Họ và tên:</span>
                 <span className="detail-value">{selectedUser.fullName}</span>
+
+                <span className="detail-label">Phòng ban:</span>
+                <span className="detail-value">{selectedUser.departmentName || '-'}</span>
+
+                <span className="detail-label">Vai trò:</span>
+                <span className="detail-value">{selectedUser.role || 'Employee'}</span>
 
                 <span className="detail-label">Email:</span>
                 <span className="detail-value">{selectedUser.email}</span>

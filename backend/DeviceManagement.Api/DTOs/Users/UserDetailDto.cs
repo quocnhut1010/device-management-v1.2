@@ -11,5 +11,6 @@ public record UserDetailDto(
     string? PhoneNumber,
     UserStatus Status,
     DateTime CreatedAt,
-    DateTime? UpdatedAt);
-
+    DateTime? UpdatedAt,
+    string? DepartmentName = null,
+    string? Role = null);

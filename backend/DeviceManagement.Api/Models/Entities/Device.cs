@@ -10,6 +10,10 @@ public class Device
     public string SerialNumber { get; set; } = string.Empty;
     public string? Category { get; set; }
     public string? Model { get; set; }
+    public Guid? DeviceTypeId { get; set; }
+    public DeviceType? DeviceType { get; set; }
+    public Guid? DeviceModelId { get; set; }
+    public DeviceModel? DeviceModel { get; set; }
     public DeviceStatus Status { get; set; } = DeviceStatus.Available;
     public DateTime? PurchasedDate { get; set; }
     public DateTime CreatedAt { get; set; }

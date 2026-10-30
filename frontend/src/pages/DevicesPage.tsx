@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import {
   Plus,
   Search,
@@ -11,9 +11,26 @@ import {
   History as HistoryIcon,
   Clock,
   User,
+  Layers,
+  Cpu,
 } from 'lucide-react'
-import { getDevices, createDevice, deleteDevice, getDashboardStats, getDeviceHistory } from '../services/resources'
-import type { Device, DeviceHistory, DeviceStatus, DashboardStats } from '../types'
+import {
+  getDevices,
+  createDevice,
+  deleteDevice,
+  getDashboardStats,
+  getDeviceHistory,
+  getDeviceTypes,
+  getDeviceModels,
+} from '../services/resources'
+import type {
+  Device,
+  DeviceHistory,
+  DeviceStatus,
+  DashboardStats,
+  DeviceType,
+  DeviceModel,
+} from '../types'
 import { Pagination } from '../components/Pagination'
 import { useAuth } from '../contexts/AuthContext'
 
@@ -50,6 +67,10 @@ export function DevicesPage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
+  // Catalog states (Phase 10)
+  const [deviceTypes, setDeviceTypes] = useState<DeviceType[]>([])
+  const [deviceModels, setDeviceModels] = useState<DeviceModel[]>([])
+
   // Dialog states
   const [openCreateModal, setOpenCreateModal] = useState(false)
   const [openDetailModal, setOpenDetailModal] = useState(false)
@@ -68,12 +89,15 @@ export function DevicesPage() {
     code: '',
     name: '',
     serialNumber: '',
+    deviceTypeId: '',
+    deviceModelId: '',
     category: '',
     model: '',
   })
 
   useEffect(() => {
     void loadStatsData()
+    void loadCatalogData()
   }, [])
 
   useEffect(() => {
@@ -87,6 +111,19 @@ export function DevicesPage() {
     try {
       const data = await getDashboardStats()
       setStats(data)
+    } catch {
+      // quiet
+    }
+  }
+
+  async function loadCatalogData() {
+    try {
+      const [types, models] = await Promise.all([
+        getDeviceTypes({ isActive: true }),
+        getDeviceModels({ isActive: true }),
+      ])
+      setDeviceTypes(types)
+      setDeviceModels(models)
     } catch {
       // quiet
     }
@@ -109,6 +146,16 @@ export function DevicesPage() {
       setLoading(false)
     }
   }
+
+  // Filtered models according to selected DeviceType in form
+  const availableModels = useMemo(() => {
+    if (!createForm.deviceTypeId) return deviceModels
+    return deviceModels.filter(m => m.deviceTypeId === createForm.deviceTypeId)
+  }, [deviceModels, createForm.deviceTypeId])
+
+  const selectedModelObj = useMemo(() => {
+    return deviceModels.find(m => m.id === createForm.deviceModelId)
+  }, [deviceModels, createForm.deviceModelId])
 
   async function loadHistory(deviceId: string, targetPage: number) {
     setHistoryLoading(true)
@@ -138,6 +185,43 @@ export function DevicesPage() {
     void loadHistory(device.id, 1)
   }
 
+  const handleTypeChange = (typeId: string) => {
+    const typeObj = deviceTypes.find(t => t.id === typeId)
+    setCreateForm(prev => {
+      // Check if current model belongs to new type
+      const currentModelBelongs = deviceModels.some(
+        m => m.id === prev.deviceModelId && m.deviceTypeId === typeId
+      )
+      return {
+        ...prev,
+        deviceTypeId: typeId,
+        deviceModelId: currentModelBelongs ? prev.deviceModelId : '',
+        category: typeObj ? typeObj.name : prev.category,
+      }
+    })
+  }
+
+  const handleModelChange = (modelId: string) => {
+    const modelObj = deviceModels.find(m => m.id === modelId)
+    setCreateForm(prev => {
+      const nextType = modelObj?.deviceTypeId || prev.deviceTypeId
+      const typeObj = deviceTypes.find(t => t.id === nextType)
+      const suggestedName =
+        !prev.name || prev.name.startsWith(prev.model || '___')
+          ? modelObj ? `${modelObj.manufacturer ? modelObj.manufacturer + ' ' : ''}${modelObj.name}` : prev.name
+          : prev.name
+
+      return {
+        ...prev,
+        deviceTypeId: nextType,
+        deviceModelId: modelId,
+        model: modelObj ? modelObj.name : prev.model,
+        category: typeObj ? typeObj.name : prev.category,
+        name: suggestedName,
+      }
+    })
+  }
+
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault()
     if (!createForm.code || !createForm.name || !createForm.serialNumber) return
@@ -145,9 +229,25 @@ export function DevicesPage() {
     setSubmitting(true)
     setError('')
     try {
-      await createDevice(createForm)
+      await createDevice({
+        code: createForm.code.trim().toUpperCase(),
+        name: createForm.name.trim(),
+        serialNumber: createForm.serialNumber.trim(),
+        deviceTypeId: createForm.deviceTypeId || undefined,
+        deviceModelId: createForm.deviceModelId || undefined,
+        category: createForm.category || undefined,
+        model: createForm.model || undefined,
+      })
       setOpenCreateModal(false)
-      setCreateForm({ code: '', name: '', serialNumber: '', category: '', model: '' })
+      setCreateForm({
+        code: '',
+        name: '',
+        serialNumber: '',
+        deviceTypeId: '',
+        deviceModelId: '',
+        category: '',
+        model: '',
+      })
       await Promise.all([loadData(), loadStatsData()])
     } catch (err: unknown) {
       const msg =
@@ -206,67 +306,67 @@ export function DevicesPage() {
         </div>
       )}
 
-      {/* 4 Statistics Cards phản ánh số liệu thực từ Database (Phase 8) */}
+      {/* 4 Statistics Cards */}
       <div className="stats-grid">
         <div className="stat-card">
           <div className="stat-card-title">Tổng số thiết bị</div>
-          <div className="stat-card-value">{stats?.totalDevices ?? totalItems}</div>
-          <div className="stat-card-sub">Tổng tài sản quản lý</div>
-        </div>
-
-        <div className="stat-card">
-          <div className="stat-card-title">Đang sử dụng</div>
-          <div className="stat-card-value" style={{ color: '#2563eb' }}>{stats?.inUseDevices ?? 0}</div>
-          <div className="stat-card-sub">Đã bàn giao nhân viên</div>
+          <div className="stat-card-value">{stats ? stats.totalDevices : totalItems}</div>
+          <div className="stat-card-sub">Tổng tài sản trong kho</div>
         </div>
 
         <div className="stat-card">
           <div className="stat-card-title">Chưa cấp phát</div>
-          <div className="stat-card-value" style={{ color: '#059669' }}>{stats?.availableDevices ?? 0}</div>
-          <div className="stat-card-sub">Sẵn sàng trong kho</div>
+          <div className="stat-card-value" style={{ color: '#059669' }}>
+            {stats ? stats.availableDevices : items.filter(d => d.status === 1).length}
+          </div>
+          <div className="stat-card-sub">Sẵn sàng bàn giao</div>
         </div>
 
         <div className="stat-card">
-          <div className="stat-card-title">Đang sửa chữa</div>
-          <div className="stat-card-value" style={{ color: '#7c3aed' }}>{stats?.underRepairDevices ?? 0}</div>
-          <div className="stat-card-sub">Bảo trì kỹ thuật</div>
+          <div className="stat-card-title">Đang sử dụng</div>
+          <div className="stat-card-value" style={{ color: '#2563eb' }}>
+            {stats ? stats.inUseDevices : items.filter(d => d.status === 3).length}
+          </div>
+          <div className="stat-card-sub">Đã bàn giao nhân viên</div>
+        </div>
+
+        <div className="stat-card">
+          <div className="stat-card-title">Bảo trì / Hỏng hóc</div>
+          <div className="stat-card-value" style={{ color: '#d97706' }}>
+            {stats ? stats.underRepairDevices : items.filter(d => d.status === 4).length}
+          </div>
+          <div className="stat-card-sub">Cần sửa chữa hoặc xử lý</div>
         </div>
       </div>
 
-      {/* Main Table Card */}
+      {/* Filter and Table Card */}
       <div className="card">
-        <div className="card-header-clean">
-          <div className="card-title">Danh sách thiết bị</div>
-          <div className="card-description">
-            Hiển thị danh sách thiết bị và tài sản công ty
-          </div>
-        </div>
-
-        {/* Toolbar */}
-        <div className="toolbar">
+        {/* Filters */}
+        <div className="filter-bar">
           <div className="search-input-wrapper">
             <Search size={16} className="search-icon" />
             <input
               className="input"
-              placeholder="Tìm theo mã thiết bị, tên, số serial..."
+              placeholder="Tìm kiếm theo mã, tên hoặc serial..."
               value={keyword}
               onChange={e => {
-                setPage(1)
                 setKeyword(e.target.value)
+                setPage(1)
               }}
             />
           </div>
 
           <select
-            className="select"
+            className="input"
+            style={{ width: '220px' }}
             value={status}
             onChange={e => {
-              setPage(1)
               setStatus(e.target.value)
+              setPage(1)
             }}
           >
             <option value="">Tất cả trạng thái</option>
-            <option value="1">Chưa cấp phát (Sẵn sàng)</option>
+            <option value="1">Chưa cấp phát</option>
             <option value="2">Chờ duyệt bàn giao</option>
             <option value="3">Đang sử dụng</option>
             <option value="4">Đang sửa chữa</option>
@@ -287,8 +387,8 @@ export function DevicesPage() {
                   <th>Mã thiết bị</th>
                   <th>Tên thiết bị</th>
                   <th>Số Serial</th>
-                  <th>Danh mục</th>
-                  <th>Model</th>
+                  <th>Loại thiết bị</th>
+                  <th>Model / Dòng máy</th>
                   <th>Trạng thái</th>
                   <th style={{ textAlign: 'right' }}>Hành động</th>
                 </tr>
@@ -311,8 +411,16 @@ export function DevicesPage() {
                       <td style={{ fontFamily: 'monospace', color: 'var(--muted-foreground)' }}>
                         {item.serialNumber}
                       </td>
-                      <td>{item.category || '-'}</td>
-                      <td>{item.model || '-'}</td>
+                      <td>
+                        <span className="badge badge-blue">
+                          {item.deviceTypeName || item.category || '-'}
+                        </span>
+                      </td>
+                      <td>
+                        <span style={{ fontWeight: 500 }}>
+                          {item.deviceModelName || item.model || '-'}
+                        </span>
+                      </td>
                       <td>
                         <span className={badge.className}>{badge.text}</span>
                       </td>
@@ -370,10 +478,10 @@ export function DevicesPage() {
         />
       </div>
 
-      {/* Modal Dialog: Thêm thiết bị mới */}
+      {/* Modal Dialog: Thêm thiết bị mới (Catalog Reference Selection) */}
       {openCreateModal && (
         <div className="modal-backdrop" onClick={() => setOpenCreateModal(false)}>
-          <div className="modal-container" onClick={e => e.stopPropagation()}>
+          <div className="modal-container" style={{ maxWidth: '540px' }} onClick={e => e.stopPropagation()}>
             <div className="modal-header">
               <h3>Thêm thiết bị mới</h3>
               <button
@@ -386,7 +494,53 @@ export function DevicesPage() {
             </div>
 
             <form onSubmit={handleCreate}>
-              <div className="modal-body">
+              <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                  <div className="form-group">
+                    <label className="form-label">
+                      <Layers size={14} style={{ display: 'inline', marginRight: '4px' }} />
+                      Loại thiết bị
+                    </label>
+                    <select
+                      className="input"
+                      value={createForm.deviceTypeId}
+                      onChange={e => handleTypeChange(e.target.value)}
+                    >
+                      <option value="">-- Chọn loại thiết bị --</option>
+                      {deviceTypes.map(t => (
+                        <option key={t.id} value={t.id}>
+                          {t.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="form-group">
+                    <label className="form-label">
+                      <Cpu size={14} style={{ display: 'inline', marginRight: '4px' }} />
+                      Dòng máy / Model
+                    </label>
+                    <select
+                      className="input"
+                      value={createForm.deviceModelId}
+                      onChange={e => handleModelChange(e.target.value)}
+                    >
+                      <option value="">-- Chọn Model chuẩn --</option>
+                      {availableModels.map(m => (
+                        <option key={m.id} value={m.id}>
+                          {m.name} {m.manufacturer ? `(${m.manufacturer})` : ''}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                {selectedModelObj?.specifications && (
+                  <div style={{ fontSize: '12px', padding: '8px 12px', background: '#f1f5f9', borderRadius: '6px', color: '#475569' }}>
+                    <strong>Thông số chuẩn:</strong> {selectedModelObj.specifications}
+                  </div>
+                )}
+
                 <div className="form-group">
                   <label className="form-label">Mã thiết bị *</label>
                   <input
@@ -402,7 +556,7 @@ export function DevicesPage() {
                   <label className="form-label">Tên thiết bị *</label>
                   <input
                     className="input"
-                    placeholder="Ví dụ: MacBook Pro 14 M3"
+                    placeholder="Ví dụ: Dell Latitude 5420 - IT 01"
                     value={createForm.name}
                     onChange={e => setCreateForm({ ...createForm, name: e.target.value })}
                     required
@@ -413,30 +567,10 @@ export function DevicesPage() {
                   <label className="form-label">Số Serial *</label>
                   <input
                     className="input"
-                    placeholder="Ví dụ: SN-MBP14-001"
+                    placeholder="Ví dụ: SN-DEV002-8821"
                     value={createForm.serialNumber}
                     onChange={e => setCreateForm({ ...createForm, serialNumber: e.target.value })}
                     required
-                  />
-                </div>
-
-                <div className="form-group">
-                  <label className="form-label">Danh mục</label>
-                  <input
-                    className="input"
-                    placeholder="Ví dụ: Laptop"
-                    value={createForm.category}
-                    onChange={e => setCreateForm({ ...createForm, category: e.target.value })}
-                  />
-                </div>
-
-                <div className="form-group">
-                  <label className="form-label">Model</label>
-                  <input
-                    className="input"
-                    placeholder="Ví dụ: 2024"
-                    value={createForm.model}
-                    onChange={e => setCreateForm({ ...createForm, model: e.target.value })}
                   />
                 </div>
               </div>
@@ -455,8 +589,7 @@ export function DevicesPage() {
                   className="btn btn-primary"
                   disabled={submitting || !createForm.code || !createForm.name || !createForm.serialNumber}
                 >
-                  <Plus size={16} />
-                  <span>{submitting ? 'Đang lưu...' : 'Lưu thiết bị'}</span>
+                  {submitting ? 'Đang thêm...' : 'Thêm thiết bị'}
                 </button>
               </div>
             </form>
@@ -494,11 +627,17 @@ export function DevicesPage() {
                   {selectedDevice.serialNumber}
                 </span>
 
-                <span className="detail-label">Danh mục:</span>
-                <span className="detail-value">{selectedDevice.category || '-'}</span>
+                <span className="detail-label">Loại thiết bị:</span>
+                <span className="detail-value">
+                  <span className="badge badge-blue">
+                    {selectedDevice.deviceTypeName || selectedDevice.category || '-'}
+                  </span>
+                </span>
 
-                <span className="detail-label">Model:</span>
-                <span className="detail-value">{selectedDevice.model || '-'}</span>
+                <span className="detail-label">Dòng máy / Model:</span>
+                <span className="detail-value">
+                  <strong>{selectedDevice.deviceModelName || selectedDevice.model || '-'}</strong>
+                </span>
 
                 <span className="detail-label">Trạng thái:</span>
                 <span className="detail-value">

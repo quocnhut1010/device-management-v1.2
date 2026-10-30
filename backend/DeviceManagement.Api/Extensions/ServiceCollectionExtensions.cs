@@ -12,10 +12,16 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IDeviceRepository, DeviceRepository>();
         services.AddScoped<IUserRepository, UserRepository>();
         services.AddScoped<IDeviceAssignmentRepository, DeviceAssignmentRepository>();
+        services.AddScoped<IDepartmentRepository, DepartmentRepository>();
+        services.AddScoped<IDeviceTypeRepository, DeviceTypeRepository>();
+        services.AddScoped<IDeviceModelRepository, DeviceModelRepository>();
 
         services.AddScoped<IDeviceService, DeviceService>();
         services.AddScoped<IUserService, UserService>();
         services.AddScoped<IDeviceAssignmentService, DeviceAssignmentService>();
+        services.AddScoped<IDepartmentService, DepartmentService>();
+        services.AddScoped<IDeviceTypeService, DeviceTypeService>();
+        services.AddScoped<IDeviceModelService, DeviceModelService>();
         services.AddScoped<IAuthService, AuthService>();
         services.AddScoped<ICurrentUserService, CurrentUserService>();
         services.AddScoped<IDashboardService, DashboardService>();

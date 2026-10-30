@@ -88,7 +88,6 @@ export function Sidebar() {
                 <Layers size={18} />
                 <span>Loại & Model</span>
               </div>
-              <span className="badge-dev">Đang phát triển</span>
             </NavLink>
           </div>
         </div>
@@ -170,7 +169,6 @@ export function Sidebar() {
                   <Building size={18} />
                   <span>Phòng ban</span>
                 </div>
-                <span className="badge-dev">Đang phát triển</span>
               </NavLink>
             </div>
           </div>

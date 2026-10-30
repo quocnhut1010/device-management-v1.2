@@ -12,5 +12,8 @@ public record DeviceDetailDto(
     DeviceStatus Status,
     DateTime? PurchasedDate,
     DateTime CreatedAt,
-    DateTime? UpdatedAt);
-
+    DateTime? UpdatedAt,
+    Guid? DeviceTypeId = null,
+    string? DeviceTypeName = null,
+    Guid? DeviceModelId = null,
+    string? DeviceModelName = null);

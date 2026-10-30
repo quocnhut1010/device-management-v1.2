@@ -15,13 +15,21 @@ public class UserRepository : IUserRepository
     }
 
     public Task<List<User>> GetAsync() =>
-        _context.Users.AsNoTracking().OrderBy(x => x.Code).ToListAsync();
+        _context.Users
+            .Include(x => x.Department)
+            .AsNoTracking()
+            .OrderBy(x => x.Code)
+            .ToListAsync();
 
     public Task<User?> GetByIdAsync(Guid id) =>
-        _context.Users.FirstOrDefaultAsync(x => x.Id == id);
+        _context.Users
+            .Include(x => x.Department)
+            .FirstOrDefaultAsync(x => x.Id == id);
 
     public Task<User?> GetByEmailAsync(string email) =>
-        _context.Users.FirstOrDefaultAsync(x => x.Email == email);
+        _context.Users
+            .Include(x => x.Department)
+            .FirstOrDefaultAsync(x => x.Email == email);
 
     public Task<bool> ExistsByCodeAsync(string code) =>
         _context.Users.AnyAsync(x => x.Code == code);
@@ -44,4 +52,3 @@ public class UserRepository : IUserRepository
     public Task SaveChangesAsync() =>
         _context.SaveChangesAsync();
 }
-

@@ -34,7 +34,11 @@ public class DeviceService : IDeviceService
         var page = request.Page < 1 ? 1 : request.Page;
         var pageSize = request.PageSize < 1 ? 20 : Math.Min(request.PageSize, 100);
 
-        var query = _context.Devices.AsNoTracking().AsQueryable();
+        var query = _context.Devices
+            .Include(x => x.DeviceType)
+            .Include(x => x.DeviceModel)
+            .AsNoTracking()
+            .AsQueryable();
 
         if (!string.IsNullOrWhiteSpace(request.Keyword))
         {
@@ -84,14 +88,54 @@ public class DeviceService : IDeviceService
             throw new BusinessException("Device serial number already exists.");
         }
 
+        DeviceType? deviceType = null;
+        DeviceModel? deviceModel = null;
+
+        if (request.DeviceTypeId.HasValue)
+        {
+            deviceType = await _context.DeviceTypes.FirstOrDefaultAsync(x => x.Id == request.DeviceTypeId.Value)
+                ?? throw new NotFoundException("Loại thiết bị không tồn tại.");
+
+            if (!deviceType.IsActive)
+            {
+                throw new BusinessException("Loại thiết bị đã bị vô hiệu hóa hoặc không hợp lệ.");
+            }
+        }
+
+        if (request.DeviceModelId.HasValue)
+        {
+            deviceModel = await _context.DeviceModels.Include(m => m.DeviceType).FirstOrDefaultAsync(x => x.Id == request.DeviceModelId.Value)
+                ?? throw new NotFoundException("Dòng máy (Model) không tồn tại.");
+
+            if (!deviceModel.IsActive)
+            {
+                throw new BusinessException("Dòng máy (Model) đã bị vô hiệu hóa hoặc không hợp lệ.");
+            }
+
+            if (request.DeviceTypeId.HasValue && deviceModel.DeviceTypeId != request.DeviceTypeId.Value)
+            {
+                throw new BusinessException("Dòng máy (Model) không thuộc về loại thiết bị đã chọn.");
+            }
+
+            if (deviceType == null)
+            {
+                deviceType = deviceModel.DeviceType;
+            }
+        }
+
+        var categoryName = deviceType?.Name ?? request.Category;
+        var modelName = deviceModel?.Name ?? request.Model;
+
         var device = new Device
         {
             Id = Guid.NewGuid(),
             Code = request.Code,
             Name = request.Name,
             SerialNumber = request.SerialNumber,
-            Category = request.Category,
-            Model = request.Model,
+            DeviceTypeId = deviceType?.Id,
+            DeviceModelId = deviceModel?.Id,
+            Category = categoryName,
+            Model = modelName,
             PurchasedDate = request.PurchasedDate,
             CreatedAt = DateTime.UtcNow
         };
@@ -111,6 +155,9 @@ public class DeviceService : IDeviceService
 
         await transaction.CommitAsync();
 
+        device.DeviceType = deviceType;
+        device.DeviceModel = deviceModel;
+
         return ToDto(device);
     }
 
@@ -119,13 +166,62 @@ public class DeviceService : IDeviceService
         var device = await _repository.GetByIdAsync(id)
             ?? throw new NotFoundException("Device not found.");
 
-        var oldName = device.Name;
-        var oldCategory = device.Category;
-        var oldModel = device.Model;
+        DeviceType? deviceType = null;
+        DeviceModel? deviceModel = null;
+
+        if (request.DeviceTypeId.HasValue)
+        {
+            deviceType = await _context.DeviceTypes.FirstOrDefaultAsync(x => x.Id == request.DeviceTypeId.Value)
+                ?? throw new NotFoundException("Loại thiết bị không tồn tại.");
+
+            if (!deviceType.IsActive)
+            {
+                throw new BusinessException("Loại thiết bị đã bị vô hiệu hóa hoặc không hợp lệ.");
+            }
+        }
+
+        if (request.DeviceModelId.HasValue)
+        {
+            deviceModel = await _context.DeviceModels.Include(m => m.DeviceType).FirstOrDefaultAsync(x => x.Id == request.DeviceModelId.Value)
+                ?? throw new NotFoundException("Dòng máy (Model) không tồn tại.");
+
+            if (!deviceModel.IsActive)
+            {
+                throw new BusinessException("Dòng máy (Model) đã bị vô hiệu hóa hoặc không hợp lệ.");
+            }
+
+            if (request.DeviceTypeId.HasValue && deviceModel.DeviceTypeId != request.DeviceTypeId.Value)
+            {
+                throw new BusinessException("Dòng máy (Model) không thuộc về loại thiết bị đã chọn.");
+            }
+
+            if (deviceType == null)
+            {
+                deviceType = deviceModel.DeviceType;
+            }
+        }
 
         device.Name = request.Name;
-        device.Category = request.Category;
-        device.Model = request.Model;
+        if (request.DeviceTypeId.HasValue)
+        {
+            device.DeviceTypeId = deviceType?.Id;
+            device.Category = deviceType?.Name;
+        }
+        else if (request.Category != null)
+        {
+            device.Category = request.Category;
+        }
+
+        if (request.DeviceModelId.HasValue)
+        {
+            device.DeviceModelId = deviceModel?.Id;
+            device.Model = deviceModel?.Name;
+        }
+        else if (request.Model != null)
+        {
+            device.Model = request.Model;
+        }
+
         device.PurchasedDate = request.PurchasedDate;
         device.UpdatedAt = DateTime.UtcNow;
 
@@ -144,6 +240,9 @@ public class DeviceService : IDeviceService
 
         await transaction.CommitAsync();
 
+        device.DeviceType = deviceType;
+        device.DeviceModel = deviceModel;
+
         return ToDto(device);
     }
 
@@ -157,17 +256,23 @@ public class DeviceService : IDeviceService
             throw new BusinessException("Cannot delete a device that has assignment history.");
         }
 
+        var histories = await _context.DeviceHistories.Where(x => x.DeviceId == id).ToListAsync();
+        if (histories.Count > 0)
+        {
+            _context.DeviceHistories.RemoveRange(histories);
+        }
+
         _repository.Delete(device);
         await _context.SaveChangesAsync();
     }
 
     public async Task RecalculateStatusAsync(Guid id)
     {
-        var device = await _context.Devices.FirstOrDefaultAsync(x => x.Id == id)
+        var device = await _repository.GetByIdAsync(id)
             ?? throw new NotFoundException("Device not found.");
 
         var nextStatus = await DetermineStatusAsync(id, device.Status);
-        if (device.Status == nextStatus)
+        if (nextStatus == device.Status)
         {
             return;
         }
@@ -197,8 +302,6 @@ public class DeviceService : IDeviceService
 
         if (!isAdmin)
         {
-            // Apply authorization so users can view history only for devices they are allowed to access.
-            // Employee can only view history for devices currently or previously assigned to them.
             var hasAccess = await _context.DeviceAssignments
                 .AnyAsync(a => a.DeviceId == deviceId && a.UserId == currentUserId);
 
@@ -261,7 +364,6 @@ public class DeviceService : IDeviceService
 
         if (!isAdmin)
         {
-            // Employee can only view history for devices currently or previously assigned to them.
             var allowedDeviceIds = await _context.DeviceAssignments
                 .Where(a => a.UserId == currentUserId)
                 .Select(a => a.DeviceId)
@@ -306,27 +408,17 @@ public class DeviceService : IDeviceService
 
     private async Task<DeviceStatus> DetermineStatusAsync(Guid deviceId, DeviceStatus currentStatus)
     {
-        if (currentStatus == DeviceStatus.Disposed)
-        {
-            return DeviceStatus.Disposed;
-        }
-
-        if (currentStatus == DeviceStatus.UnderRepair)
-        {
-            return DeviceStatus.UnderRepair;
-        }
-
         var assignments = await _context.DeviceAssignments
             .Where(x => x.DeviceId == deviceId)
-            .Select(x => x.Status)
+            .OrderByDescending(x => x.AssignedAt)
             .ToListAsync();
 
-        if (assignments.Contains(DeviceAssignmentStatus.Accepted))
+        if (assignments.Any(x => x.Status == DeviceAssignmentStatus.Accepted))
         {
             return DeviceStatus.InUse;
         }
 
-        if (assignments.Contains(DeviceAssignmentStatus.Pending))
+        if (assignments.Any(x => x.Status == DeviceAssignmentStatus.Pending))
         {
             return DeviceStatus.PendingAssignment;
         }
@@ -358,8 +450,35 @@ public class DeviceService : IDeviceService
     }
 
     private static DeviceDto ToDto(Device x) =>
-        new(x.Id, x.Code, x.Name, x.SerialNumber, x.Status);
+        new(
+            x.Id,
+            x.Code,
+            x.Name,
+            x.SerialNumber,
+            x.Status,
+            x.Category,
+            x.Model,
+            x.DeviceTypeId,
+            x.DeviceType?.Name,
+            x.DeviceModelId,
+            x.DeviceModel?.Name
+        );
 
     private static DeviceDetailDto ToDetailDto(Device x) =>
-        new(x.Id, x.Code, x.Name, x.SerialNumber, x.Category, x.Model, x.Status, x.PurchasedDate, x.CreatedAt, x.UpdatedAt);
+        new(
+            x.Id,
+            x.Code,
+            x.Name,
+            x.SerialNumber,
+            x.Category,
+            x.Model,
+            x.Status,
+            x.PurchasedDate,
+            x.CreatedAt,
+            x.UpdatedAt,
+            x.DeviceTypeId,
+            x.DeviceType?.Name,
+            x.DeviceModelId,
+            x.DeviceModel?.Name
+        );
 }

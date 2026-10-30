@@ -32,6 +32,86 @@ export type DeviceStatus = 1 | 2 | 3 | 4 | 5
 export type UserStatus = 1 | 2
 export type AssignmentStatus = 1 | 2 | 3 | 4 | 5
 
+export interface Department {
+  id: string
+  code: string
+  name: string
+  isActive: boolean
+  userCount: number
+  createdAt: string
+  updatedAt?: string | null
+}
+
+export interface CreateDepartmentInput {
+  code: string
+  name: string
+  isActive?: boolean
+}
+
+export interface UpdateDepartmentInput {
+  code: string
+  name: string
+  isActive: boolean
+}
+
+export interface DeviceType {
+  id: string
+  code: string
+  name: string
+  description?: string | null
+  isActive: boolean
+  modelCount: number
+  deviceCount: number
+  createdAt: string
+  updatedAt?: string | null
+}
+
+export interface CreateDeviceTypeInput {
+  code: string
+  name: string
+  description?: string | null
+  isActive?: boolean
+}
+
+export interface UpdateDeviceTypeInput {
+  code: string
+  name: string
+  description?: string | null
+  isActive: boolean
+}
+
+export interface DeviceModel {
+  id: string
+  deviceTypeId: string
+  deviceTypeName?: string | null
+  code: string
+  name: string
+  manufacturer?: string | null
+  specifications?: string | null
+  isActive: boolean
+  deviceCount: number
+  createdAt: string
+  updatedAt?: string | null
+}
+
+export interface CreateDeviceModelInput {
+  deviceTypeId: string
+  code: string
+  name: string
+  manufacturer?: string | null
+  specifications?: string | null
+  isActive?: boolean
+}
+
+export interface UpdateDeviceModelInput {
+  deviceTypeId: string
+  code: string
+  name: string
+  manufacturer?: string | null
+  specifications?: string | null
+  isActive: boolean
+}
+
 export type Device = {
   id: string
   code: string
@@ -39,6 +119,10 @@ export type Device = {
   serialNumber: string
   category?: string | null
   model?: string | null
+  deviceTypeId?: string | null
+  deviceTypeName?: string | null
+  deviceModelId?: string | null
+  deviceModelName?: string | null
   status: DeviceStatus
   purchasedDate?: string | null
   createdAt?: string
@@ -48,10 +132,12 @@ export type Device = {
 export type User = {
   id: string
   departmentId?: string | null
+  departmentName?: string | null
   code: string
   fullName: string
   email: string
   phoneNumber?: string | null
+  role?: string
   status: UserStatus
   createdAt?: string
   updatedAt?: string | null

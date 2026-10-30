@@ -15,10 +15,18 @@ public class DeviceRepository : IDeviceRepository
     }
 
     public Task<List<Device>> GetAsync() =>
-        _context.Devices.AsNoTracking().OrderBy(x => x.Code).ToListAsync();
+        _context.Devices
+            .Include(x => x.DeviceType)
+            .Include(x => x.DeviceModel)
+            .AsNoTracking()
+            .OrderBy(x => x.Code)
+            .ToListAsync();
 
     public Task<Device?> GetByIdAsync(Guid id) =>
-        _context.Devices.FirstOrDefaultAsync(x => x.Id == id);
+        _context.Devices
+            .Include(x => x.DeviceType)
+            .Include(x => x.DeviceModel)
+            .FirstOrDefaultAsync(x => x.Id == id);
 
     public Task<bool> ExistsByCodeAsync(string code) =>
         _context.Devices.AnyAsync(x => x.Code == code);
@@ -38,4 +46,3 @@ public class DeviceRepository : IDeviceRepository
     public void Delete(Device device) =>
         _context.Devices.Remove(device);
 }
-
