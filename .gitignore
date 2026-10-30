@@ -1,3 +1,43 @@
+# Build & Output
 bin/
 obj/
+dist/
+build/
 *.log
+
+# Dependencies
+node_modules/
+.npm/
+
+# Environment & Credentials
+.env
+.env.local
+.env.*.local
+.env.test
+test-credentials.local.json
+*credentials*.local.json
+*.pfx
+*.pem
+*.key
+*.cer
+
+# IDE & Editor files
+.vs/
+.idea/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+
+# Browser Automation & Test Artifacts
+.chrome-profile/
+.devtools/
+test-results/
+screenshots/
+traces/
+*.heapsnapshot
+*.cpuprofile
+
+# OS files
+.DS_Store
+Thumbs.db

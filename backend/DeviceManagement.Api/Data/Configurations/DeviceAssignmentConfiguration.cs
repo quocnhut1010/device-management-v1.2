@@ -14,5 +14,6 @@ public class DeviceAssignmentConfiguration : IEntityTypeConfiguration<DeviceAssi
         builder.HasOne(x => x.User).WithMany(x => x.DeviceAssignments).HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Restrict);
         builder.HasOne(x => x.AssignedByUser).WithMany().HasForeignKey(x => x.AssignedByUserId).OnDelete(DeleteBehavior.Restrict);
         builder.HasIndex(x => new { x.DeviceId, x.Status });
+        builder.HasIndex(x => x.DeviceId).IsUnique().HasFilter("[Status] IN (1, 2)");
     }
 }

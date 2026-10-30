@@ -12,6 +12,9 @@ public class UserConfiguration : IEntityTypeConfiguration<User>
         builder.Property(x => x.Code).HasMaxLength(50).IsRequired();
         builder.Property(x => x.FullName).HasMaxLength(200).IsRequired();
         builder.Property(x => x.Email).HasMaxLength(200).IsRequired();
+        builder.Property(x => x.PasswordHash).HasMaxLength(255).IsRequired();
+        builder.Property(x => x.Role).HasMaxLength(50).IsRequired();
+        builder.Property(x => x.PhoneNumber).HasMaxLength(30);
         builder.HasIndex(x => x.Code).IsUnique();
         builder.HasIndex(x => x.Email).IsUnique();
         builder.HasOne(x => x.Department).WithMany(x => x.Users).HasForeignKey(x => x.DepartmentId).OnDelete(DeleteBehavior.Restrict);

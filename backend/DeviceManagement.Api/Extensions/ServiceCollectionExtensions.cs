@@ -16,6 +16,8 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IDeviceService, DeviceService>();
         services.AddScoped<IUserService, UserService>();
         services.AddScoped<IDeviceAssignmentService, DeviceAssignmentService>();
+        services.AddScoped<IAuthService, AuthService>();
+        services.AddScoped<ICurrentUserService, CurrentUserService>();
 
         return services;
     }

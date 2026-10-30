@@ -9,6 +9,8 @@ public class User
     public string Code { get; set; } = string.Empty;
     public string FullName { get; set; } = string.Empty;
     public string Email { get; set; } = string.Empty;
+    public string PasswordHash { get; set; } = string.Empty;
+    public string Role { get; set; } = "Employee";
     public string? PhoneNumber { get; set; }
     public UserStatus Status { get; set; } = UserStatus.Active;
     public DateTime CreatedAt { get; set; }

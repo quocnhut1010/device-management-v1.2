@@ -1,9 +1,11 @@
 using DeviceManagement.Api.Common.Exceptions;
+using DeviceManagement.Api.Common.Models;
 using DeviceManagement.Api.Data;
 using DeviceManagement.Api.DTOs.Users;
 using DeviceManagement.Api.Models.Entities;
 using DeviceManagement.Api.Repositories.Interfaces;
 using DeviceManagement.Api.Services.Interfaces;
+using Microsoft.EntityFrameworkCore;
 
 namespace DeviceManagement.Api.Services.Implementations;
 
@@ -20,6 +22,41 @@ public class UserService : IUserService
 
     public async Task<List<UserDto>> GetAsync() =>
         (await _repository.GetAsync()).Select(ToDto).ToList();
+
+    public async Task<PagedResult<UserDto>> GetAsync(UserFilterRequest request)
+    {
+        var page = request.Page < 1 ? 1 : request.Page;
+        var pageSize = request.PageSize < 1 ? 20 : Math.Min(request.PageSize, 100);
+
+        var query = _context.Users.AsNoTracking().AsQueryable();
+
+        if (!string.IsNullOrWhiteSpace(request.Keyword))
+        {
+            var keyword = request.Keyword.Trim();
+            query = query.Where(x => x.Code.Contains(keyword) || x.FullName.Contains(keyword) || x.Email.Contains(keyword));
+        }
+
+        if (request.Status.HasValue)
+        {
+            query = query.Where(x => x.Status == request.Status.Value);
+        }
+
+        var totalItems = await query.CountAsync();
+        var items = await query
+            .OrderBy(x => x.Code)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .Select(x => ToDto(x))
+            .ToListAsync();
+
+        return new PagedResult<UserDto>
+        {
+            Items = items,
+            Page = page,
+            PageSize = pageSize,
+            TotalItems = totalItems
+        };
+    }
 
     public async Task<UserDetailDto> GetByIdAsync(Guid id)
     {

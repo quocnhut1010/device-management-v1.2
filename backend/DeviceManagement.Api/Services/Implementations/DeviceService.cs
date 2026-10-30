@@ -1,9 +1,12 @@
 using DeviceManagement.Api.Common.Exceptions;
+using DeviceManagement.Api.Common.Models;
 using DeviceManagement.Api.Data;
 using DeviceManagement.Api.DTOs.Devices;
 using DeviceManagement.Api.Models.Entities;
+using DeviceManagement.Api.Models.Enums;
 using DeviceManagement.Api.Repositories.Interfaces;
 using DeviceManagement.Api.Services.Interfaces;
+using Microsoft.EntityFrameworkCore;
 
 namespace DeviceManagement.Api.Services.Implementations;
 
@@ -20,6 +23,41 @@ public class DeviceService : IDeviceService
 
     public async Task<List<DeviceDto>> GetAsync() =>
         (await _repository.GetAsync()).Select(ToDto).ToList();
+
+    public async Task<PagedResult<DeviceDto>> GetAsync(DeviceFilterRequest request)
+    {
+        var page = request.Page < 1 ? 1 : request.Page;
+        var pageSize = request.PageSize < 1 ? 20 : Math.Min(request.PageSize, 100);
+
+        var query = _context.Devices.AsNoTracking().AsQueryable();
+
+        if (!string.IsNullOrWhiteSpace(request.Keyword))
+        {
+            var keyword = request.Keyword.Trim();
+            query = query.Where(x => x.Code.Contains(keyword) || x.Name.Contains(keyword) || x.SerialNumber.Contains(keyword));
+        }
+
+        if (request.Status.HasValue)
+        {
+            query = query.Where(x => x.Status == request.Status.Value);
+        }
+
+        var totalItems = await query.CountAsync();
+        var items = await query
+            .OrderBy(x => x.Code)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .Select(x => ToDto(x))
+            .ToListAsync();
+
+        return new PagedResult<DeviceDto>
+        {
+            Items = items,
+            Page = page,
+            PageSize = pageSize,
+            TotalItems = totalItems
+        };
+    }
 
     public async Task<DeviceDetailDto> GetByIdAsync(Guid id)
     {
@@ -88,7 +126,54 @@ public class DeviceService : IDeviceService
 
         _repository.Delete(device);
         await _context.SaveChangesAsync();
-}
+    }
+
+    public async Task RecalculateStatusAsync(Guid id)
+    {
+        var device = await _context.Devices.FirstOrDefaultAsync(x => x.Id == id)
+            ?? throw new NotFoundException("Device not found.");
+
+        var nextStatus = await DetermineStatusAsync(id, device.Status);
+        if (device.Status == nextStatus)
+        {
+            return;
+        }
+
+        device.Status = nextStatus;
+        device.UpdatedAt = DateTime.UtcNow;
+        _repository.Update(device);
+        await _context.SaveChangesAsync();
+    }
+
+    private async Task<DeviceStatus> DetermineStatusAsync(Guid deviceId, DeviceStatus currentStatus)
+    {
+        if (currentStatus == DeviceStatus.Disposed)
+        {
+            return DeviceStatus.Disposed;
+        }
+
+        if (currentStatus == DeviceStatus.UnderRepair)
+        {
+            return DeviceStatus.UnderRepair;
+        }
+
+        var assignments = await _context.DeviceAssignments
+            .Where(x => x.DeviceId == deviceId)
+            .Select(x => x.Status)
+            .ToListAsync();
+
+        if (assignments.Contains(DeviceAssignmentStatus.Accepted))
+        {
+            return DeviceStatus.InUse;
+        }
+
+        if (assignments.Contains(DeviceAssignmentStatus.Pending))
+        {
+            return DeviceStatus.PendingAssignment;
+        }
+
+        return DeviceStatus.Available;
+    }
 
     private static DeviceDto ToDto(Device x) =>
         new(x.Id, x.Code, x.Name, x.SerialNumber, x.Status);

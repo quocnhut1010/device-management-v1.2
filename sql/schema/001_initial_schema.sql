@@ -1,7 +1,7 @@
-CREATE DATABASE DeviceManagementV12;
+CREATE DATABASE DeviceManagement_V1_2;
 GO
 
-USE DeviceManagementV12;
+USE DeviceManagement_V1_2;
 GO
 
 CREATE TABLE Departments (
@@ -21,6 +21,8 @@ CREATE TABLE Users (
     Code NVARCHAR(50) NOT NULL,
     FullName NVARCHAR(200) NOT NULL,
     Email NVARCHAR(200) NOT NULL,
+    PasswordHash NVARCHAR(255) NOT NULL,
+    Role NVARCHAR(50) NOT NULL,
     PhoneNumber NVARCHAR(30) NULL,
     Status INT NOT NULL,
     CreatedAt DATETIME2 NOT NULL,
@@ -65,6 +67,11 @@ CREATE TABLE DeviceAssignments (
     CONSTRAINT FK_DeviceAssignments_Users FOREIGN KEY (UserId) REFERENCES Users(Id),
     CONSTRAINT FK_DeviceAssignments_AssignedByUsers FOREIGN KEY (AssignedByUserId) REFERENCES Users(Id)
 );
+GO
+
+CREATE UNIQUE INDEX UX_DeviceAssignments_DeviceId_Active
+ON DeviceAssignments(DeviceId)
+WHERE Status IN (1, 2);
 GO
 
 CREATE TABLE DeviceHistories (

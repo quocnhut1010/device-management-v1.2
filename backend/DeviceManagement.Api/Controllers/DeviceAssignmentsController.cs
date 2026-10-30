@@ -1,10 +1,12 @@
 using DeviceManagement.Api.Common.Models;
 using DeviceManagement.Api.DTOs.DeviceAssignments;
 using DeviceManagement.Api.Services.Interfaces;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace DeviceManagement.Api.Controllers;
 
+[Authorize]
 [ApiController]
 [Route("api/device-assignments")]
 public class DeviceAssignmentsController : ControllerBase
@@ -17,10 +19,11 @@ public class DeviceAssignmentsController : ControllerBase
     }
 
     [HttpGet]
-    public async Task<ActionResult<ApiResponse<List<DeviceAssignmentDto>>>> GetAsync() =>
-        Ok(ApiResponse<List<DeviceAssignmentDto>>.Ok(await _service.GetAsync()));
+    public async Task<ActionResult<ApiResponse<PagedResult<DeviceAssignmentDto>>>> GetAsync([FromQuery] DeviceAssignmentFilterRequest request) =>
+        Ok(ApiResponse<PagedResult<DeviceAssignmentDto>>.Ok(await _service.GetAsync(request)));
 
     [HttpPost]
+    [Authorize(Roles = "Admin")]
     public async Task<ActionResult<ApiResponse<DeviceAssignmentDto>>> CreateAsync(CreateDeviceAssignmentRequest request)
     {
         var result = await _service.CreateAsync(request);
@@ -38,4 +41,9 @@ public class DeviceAssignmentsController : ControllerBase
     [HttpPost("{id:guid}/return")]
     public async Task<ActionResult<ApiResponse<DeviceAssignmentDto>>> ReturnAsync(Guid id) =>
         Ok(ApiResponse<DeviceAssignmentDto>.Ok(await _service.ReturnAsync(id)));
+
+    [HttpPost("{id:guid}/revoke")]
+    [Authorize(Roles = "Admin")]
+    public async Task<ActionResult<ApiResponse<DeviceAssignmentDto>>> RevokeAsync(Guid id) =>
+        Ok(ApiResponse<DeviceAssignmentDto>.Ok(await _service.RevokeAsync(id)));
 }

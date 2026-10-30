@@ -1,10 +1,12 @@
 using DeviceManagement.Api.Common.Models;
 using DeviceManagement.Api.DTOs.Users;
 using DeviceManagement.Api.Services.Interfaces;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace DeviceManagement.Api.Controllers;
 
+[Authorize]
 [ApiController]
 [Route("api/users")]
 public class UsersController : ControllerBase
@@ -17,14 +19,15 @@ public class UsersController : ControllerBase
     }
 
     [HttpGet]
-    public async Task<ActionResult<ApiResponse<List<UserDto>>>> GetAsync() =>
-        Ok(ApiResponse<List<UserDto>>.Ok(await _service.GetAsync()));
+    public async Task<ActionResult<ApiResponse<PagedResult<UserDto>>>> GetAsync([FromQuery] UserFilterRequest request) =>
+        Ok(ApiResponse<PagedResult<UserDto>>.Ok(await _service.GetAsync(request)));
 
     [HttpGet("{id:guid}")]
     public async Task<ActionResult<ApiResponse<UserDetailDto>>> GetByIdAsync(Guid id) =>
         Ok(ApiResponse<UserDetailDto>.Ok(await _service.GetByIdAsync(id)));
 
     [HttpPost]
+    [Authorize(Roles = "Admin")]
     public async Task<ActionResult<ApiResponse<UserDto>>> CreateAsync(CreateUserRequest request)
     {
         var result = await _service.CreateAsync(request);
@@ -32,10 +35,12 @@ public class UsersController : ControllerBase
     }
 
     [HttpPut("{id:guid}")]
+    [Authorize(Roles = "Admin")]
     public async Task<ActionResult<ApiResponse<UserDto>>> UpdateAsync(Guid id, UpdateUserRequest request) =>
         Ok(ApiResponse<UserDto>.Ok(await _service.UpdateAsync(id, request)));
 
     [HttpDelete("{id:guid}")]
+    [Authorize(Roles = "Admin")]
     public async Task<IActionResult> DeleteAsync(Guid id)
     {
         await _service.DeleteAsync(id);

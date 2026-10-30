@@ -24,6 +24,8 @@ public class ExceptionHandlingMiddleware
             context.Response.ContentType = "application/json";
             context.Response.StatusCode = ex switch
             {
+                UnauthorizedAccessException => (int)HttpStatusCode.Unauthorized,
+                ForbiddenException => (int)HttpStatusCode.Forbidden,
                 NotFoundException => (int)HttpStatusCode.NotFound,
                 BusinessException => (int)HttpStatusCode.BadRequest,
                 _ => (int)HttpStatusCode.InternalServerError
