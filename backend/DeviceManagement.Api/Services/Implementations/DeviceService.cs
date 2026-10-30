@@ -13,11 +13,16 @@ namespace DeviceManagement.Api.Services.Implementations;
 public class DeviceService : IDeviceService
 {
     private readonly IDeviceRepository _repository;
+    private readonly ICurrentUserService _currentUserService;
     private readonly DeviceManagementDbContext _context;
 
-    public DeviceService(IDeviceRepository repository, DeviceManagementDbContext context)
+    public DeviceService(
+        IDeviceRepository repository,
+        ICurrentUserService currentUserService,
+        DeviceManagementDbContext context)
     {
         _repository = repository;
+        _currentUserService = currentUserService;
         _context = context;
     }
 
@@ -91,8 +96,20 @@ public class DeviceService : IDeviceService
             CreatedAt = DateTime.UtcNow
         };
 
+        await using var transaction = await _context.Database.BeginTransactionAsync();
+
         await _repository.AddAsync(device);
         await _context.SaveChangesAsync();
+
+        await WriteHistoryAsync(
+            device.Id,
+            _currentUserService.GetUserId(),
+            "DeviceCreated",
+            null,
+            DeviceStatus.Available,
+            $"Thiết bị '{device.Name}' ({device.Code}) được khởi tạo trên hệ thống.");
+
+        await transaction.CommitAsync();
 
         return ToDto(device);
     }
@@ -102,14 +119,30 @@ public class DeviceService : IDeviceService
         var device = await _repository.GetByIdAsync(id)
             ?? throw new NotFoundException("Device not found.");
 
+        var oldName = device.Name;
+        var oldCategory = device.Category;
+        var oldModel = device.Model;
+
         device.Name = request.Name;
         device.Category = request.Category;
         device.Model = request.Model;
         device.PurchasedDate = request.PurchasedDate;
         device.UpdatedAt = DateTime.UtcNow;
 
+        await using var transaction = await _context.Database.BeginTransactionAsync();
+
         _repository.Update(device);
         await _context.SaveChangesAsync();
+
+        await WriteHistoryAsync(
+            device.Id,
+            _currentUserService.GetUserId(),
+            "DeviceUpdated",
+            device.Status,
+            device.Status,
+            $"Cập nhật thông tin thiết bị: Tên='{device.Name}', Loại='{device.Category}', Model='{device.Model}'.");
+
+        await transaction.CommitAsync();
 
         return ToDto(device);
     }
@@ -139,10 +172,136 @@ public class DeviceService : IDeviceService
             return;
         }
 
+        var oldStatus = device.Status;
         device.Status = nextStatus;
         device.UpdatedAt = DateTime.UtcNow;
         _repository.Update(device);
         await _context.SaveChangesAsync();
+
+        await WriteHistoryAsync(
+            device.Id,
+            _currentUserService.GetUserId(),
+            "StatusRecalculated",
+            oldStatus,
+            nextStatus,
+            $"Trạng thái thiết bị tự động cập nhật từ {oldStatus} sang {nextStatus}.");
+    }
+
+    public async Task<PagedResult<DeviceHistoryDto>> GetHistoryAsync(Guid deviceId, int page, int pageSize)
+    {
+        var device = await _repository.GetByIdAsync(deviceId)
+            ?? throw new NotFoundException("Device not found.");
+
+        var isAdmin = _currentUserService.IsInRole("Admin");
+        var currentUserId = _currentUserService.GetRequiredUserId();
+
+        if (!isAdmin)
+        {
+            // Apply authorization so users can view history only for devices they are allowed to access.
+            // Employee can only view history for devices currently or previously assigned to them.
+            var hasAccess = await _context.DeviceAssignments
+                .AnyAsync(a => a.DeviceId == deviceId && a.UserId == currentUserId);
+
+            if (!hasAccess)
+            {
+                throw new ForbiddenException("You are not allowed to view the history for this device.");
+            }
+        }
+
+        page = page < 1 ? 1 : page;
+        pageSize = pageSize < 1 ? 20 : Math.Min(pageSize, 100);
+
+        var query = _context.DeviceHistories
+            .AsNoTracking()
+            .Include(x => x.CreatedByUser)
+            .Include(x => x.Device)
+            .Where(x => x.DeviceId == deviceId)
+            .OrderByDescending(x => x.CreatedAt)
+            .ThenByDescending(x => x.Id);
+
+        var totalItems = await query.CountAsync();
+        var items = await query
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .Select(x => new DeviceHistoryDto(
+                x.Id,
+                x.DeviceId,
+                x.Action,
+                x.OldStatus,
+                x.NewStatus,
+                x.Description,
+                x.CreatedByUserId,
+                x.CreatedByUser != null ? x.CreatedByUser.FullName : null,
+                x.CreatedAt,
+                x.Device != null ? $"{x.Device.Code} - {x.Device.Name}" : null))
+            .ToListAsync();
+
+        return new PagedResult<DeviceHistoryDto>
+        {
+            Items = items,
+            Page = page,
+            PageSize = pageSize,
+            TotalItems = totalItems
+        };
+    }
+
+    public async Task<PagedResult<DeviceHistoryDto>> GetAllHistoryAsync(Guid? deviceId, int page, int pageSize)
+    {
+        var isAdmin = _currentUserService.IsInRole("Admin");
+        var currentUserId = _currentUserService.GetRequiredUserId();
+
+        page = page < 1 ? 1 : page;
+        pageSize = pageSize < 1 ? 20 : Math.Min(pageSize, 100);
+
+        var query = _context.DeviceHistories
+            .AsNoTracking()
+            .Include(x => x.CreatedByUser)
+            .Include(x => x.Device)
+            .AsQueryable();
+
+        if (!isAdmin)
+        {
+            // Employee can only view history for devices currently or previously assigned to them.
+            var allowedDeviceIds = await _context.DeviceAssignments
+                .Where(a => a.UserId == currentUserId)
+                .Select(a => a.DeviceId)
+                .Distinct()
+                .ToListAsync();
+
+            query = query.Where(x => allowedDeviceIds.Contains(x.DeviceId));
+        }
+
+        if (deviceId.HasValue)
+        {
+            query = query.Where(x => x.DeviceId == deviceId.Value);
+        }
+
+        query = query.OrderByDescending(x => x.CreatedAt).ThenByDescending(x => x.Id);
+
+        var totalItems = await query.CountAsync();
+        var items = await query
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .Select(x => new DeviceHistoryDto(
+                x.Id,
+                x.DeviceId,
+                x.Action,
+                x.OldStatus,
+                x.NewStatus,
+                x.Description,
+                x.CreatedByUserId,
+                x.CreatedByUser != null ? x.CreatedByUser.FullName : null,
+                x.CreatedAt,
+                x.Device != null ? $"{x.Device.Code} - {x.Device.Name}" : null))
+            .ToListAsync();
+
+        return new PagedResult<DeviceHistoryDto>
+        {
+            Items = items,
+            Page = page,
+            PageSize = pageSize,
+            TotalItems = totalItems
+        };
     }
 
     private async Task<DeviceStatus> DetermineStatusAsync(Guid deviceId, DeviceStatus currentStatus)
@@ -175,10 +334,32 @@ public class DeviceService : IDeviceService
         return DeviceStatus.Available;
     }
 
+    private async Task WriteHistoryAsync(
+        Guid deviceId,
+        Guid? createdByUserId,
+        string action,
+        DeviceStatus? oldStatus,
+        DeviceStatus? newStatus,
+        string description)
+    {
+        await _context.DeviceHistories.AddAsync(new DeviceHistory
+        {
+            Id = Guid.NewGuid(),
+            DeviceId = deviceId,
+            Action = action,
+            OldStatus = oldStatus,
+            NewStatus = newStatus,
+            Description = description,
+            CreatedByUserId = createdByUserId,
+            CreatedAt = DateTime.UtcNow
+        });
+
+        await _context.SaveChangesAsync();
+    }
+
     private static DeviceDto ToDto(Device x) =>
         new(x.Id, x.Code, x.Name, x.SerialNumber, x.Status);
 
     private static DeviceDetailDto ToDetailDto(Device x) =>
         new(x.Id, x.Code, x.Name, x.SerialNumber, x.Category, x.Model, x.Status, x.PurchasedDate, x.CreatedAt, x.UpdatedAt);
 }
-

@@ -35,8 +35,19 @@ public class DeviceAssignmentService : IDeviceAssignmentService
         _context = context;
     }
 
-    public async Task<List<DeviceAssignmentDto>> GetAsync() =>
-        (await _assignmentRepository.GetAsync()).Select(ToDto).ToList();
+    public async Task<List<DeviceAssignmentDto>> GetAsync()
+    {
+        var query = _context.DeviceAssignments.AsNoTracking();
+        var isAdmin = _currentUserService.IsInRole("Admin");
+
+        if (!isAdmin)
+        {
+            var currentUserId = _currentUserService.GetRequiredUserId();
+            query = query.Where(x => x.UserId == currentUserId);
+        }
+
+        return (await query.OrderByDescending(x => x.AssignedAt).ToListAsync()).Select(ToDto).ToList();
+    }
 
     public async Task<PagedResult<DeviceAssignmentDto>> GetAsync(DeviceAssignmentFilterRequest request)
     {
@@ -48,14 +59,23 @@ public class DeviceAssignmentService : IDeviceAssignmentService
             .OrderByDescending(x => x.AssignedAt)
             .AsQueryable();
 
+        var isAdmin = _currentUserService.IsInRole("Admin");
+        var currentUserId = _currentUserService.GetRequiredUserId();
+
+        if (!isAdmin)
+        {
+            // Employee can view only assignments belonging to the authenticated user.
+            // Query parameters must not allow an Employee to view another user's assignments.
+            query = query.Where(x => x.UserId == currentUserId);
+        }
+        else if (request.UserId.HasValue)
+        {
+            query = query.Where(x => x.UserId == request.UserId.Value);
+        }
+
         if (request.DeviceId.HasValue)
         {
             query = query.Where(x => x.DeviceId == request.DeviceId.Value);
-        }
-
-        if (request.UserId.HasValue)
-        {
-            query = query.Where(x => x.UserId == request.UserId.Value);
         }
 
         if (request.Status.HasValue)
@@ -193,14 +213,14 @@ public class DeviceAssignmentService : IDeviceAssignmentService
         {
             DeviceAssignmentStatus.Accepted => assignment.UserId == actorUserId,
             DeviceAssignmentStatus.Rejected => assignment.UserId == actorUserId,
-            DeviceAssignmentStatus.Returned => assignment.UserId == actorUserId,
+            DeviceAssignmentStatus.Returned => assignment.UserId == actorUserId || _currentUserService.IsInRole("Admin"),
             DeviceAssignmentStatus.Revoked => assignment.AssignedByUserId == actorUserId || _currentUserService.IsInRole("Admin"),
             _ => false
         };
 
         if (!isAllowed)
         {
-            throw new BusinessException("Actor user is not allowed to perform this action.");
+            throw new ForbiddenException("Actor user is not allowed to perform this action.");
         }
     }
 

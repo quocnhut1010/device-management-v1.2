@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import {
   Plus,
   Search,
@@ -8,9 +8,12 @@ import {
   AlertCircle,
   X,
   Laptop,
+  History as HistoryIcon,
+  Clock,
+  User,
 } from 'lucide-react'
-import { getDevices, createDevice, deleteDevice } from '../services/resources'
-import type { Device, DeviceStatus } from '../types'
+import { getDevices, createDevice, deleteDevice, getDashboardStats, getDeviceHistory } from '../services/resources'
+import type { Device, DeviceHistory, DeviceStatus, DashboardStats } from '../types'
 import { Pagination } from '../components/Pagination'
 import { useAuth } from '../contexts/AuthContext'
 
@@ -22,14 +25,25 @@ const deviceStatusConfig: Record<DeviceStatus, { text: string; className: string
   5: { text: 'Đã thanh lý', className: 'badge badge-red' },
 }
 
+const historyActionConfig: Record<string, { label: string; className: string }> = {
+  DeviceCreated: { label: 'Khởi tạo thiết bị', className: 'badge badge-green' },
+  DeviceUpdated: { label: 'Cập nhật thiết bị', className: 'badge badge-blue' },
+  AssignmentCreated: { label: 'Tạo phiếu bàn giao', className: 'badge badge-amber' },
+  AssignmentAccepted: { label: 'Đã nhận thiết bị', className: 'badge badge-green' },
+  AssignmentRejected: { label: 'Từ chối nhận thiết bị', className: 'badge badge-red' },
+  AssignmentReturned: { label: 'Hoàn trả thiết bị', className: 'badge badge-purple' },
+  AssignmentRevoked: { label: 'Thu hồi bàn giao', className: 'badge badge-gray' },
+  StatusRecalculated: { label: 'Cập nhật trạng thái', className: 'badge badge-blue' },
+}
+
 export function DevicesPage() {
   const { profile } = useAuth()
   const isAdmin = profile?.role?.toLowerCase() === 'admin'
 
   const [items, setItems] = useState<Device[]>([])
-  const [allItemsForStats, setAllItemsForStats] = useState<Device[]>([])
+  const [stats, setStats] = useState<DashboardStats | null>(null)
   const [page, setPage] = useState(1)
-  const [pageSize, setPageSize] = useState(10)
+  const [pageSize] = useState(10)
   const [totalItems, setTotalItems] = useState(0)
   const [keyword, setKeyword] = useState('')
   const [status, setStatus] = useState('')
@@ -39,8 +53,16 @@ export function DevicesPage() {
   // Dialog states
   const [openCreateModal, setOpenCreateModal] = useState(false)
   const [openDetailModal, setOpenDetailModal] = useState(false)
+  const [openHistoryModal, setOpenHistoryModal] = useState(false)
   const [selectedDevice, setSelectedDevice] = useState<Device | null>(null)
   const [submitting, setSubmitting] = useState(false)
+
+  // History state (Phase 9)
+  const [historyItems, setHistoryItems] = useState<DeviceHistory[]>([])
+  const [historyPage, setHistoryPage] = useState(1)
+  const [historyTotalItems, setHistoryTotalItems] = useState(0)
+  const [historyLoading, setHistoryLoading] = useState(false)
+  const [historyError, setHistoryError] = useState('')
 
   const [createForm, setCreateForm] = useState({
     code: '',
@@ -63,8 +85,8 @@ export function DevicesPage() {
 
   async function loadStatsData() {
     try {
-      const data = await getDevices({ page: 1, pageSize: 100 })
-      setAllItemsForStats(data.items)
+      const data = await getDashboardStats()
+      setStats(data)
     } catch {
       // quiet
     }
@@ -88,15 +110,33 @@ export function DevicesPage() {
     }
   }
 
-  // 4 Statistics calculations
-  const stats = useMemo(() => {
-    const list = allItemsForStats.length > 0 ? allItemsForStats : items
-    const total = list.length
-    const inUse = list.filter(d => d.status === 3).length
-    const available = list.filter(d => d.status === 1).length
-    const underRepair = list.filter(d => d.status === 4).length
-    return { total, inUse, available, underRepair }
-  }, [allItemsForStats, items])
+  async function loadHistory(deviceId: string, targetPage: number) {
+    setHistoryLoading(true)
+    setHistoryError('')
+    try {
+      const result = await getDeviceHistory(deviceId, { page: targetPage, pageSize: 10 })
+      setHistoryItems(result.items)
+      setHistoryTotalItems(result.totalItems)
+      setHistoryPage(result.page)
+    } catch (err: unknown) {
+      const msg =
+        err && typeof err === 'object' && 'response' in err
+          ? (err as { response?: { data?: { message?: string } } }).response?.data?.message
+          : 'Bạn không có quyền xem lịch sử thiết bị này hoặc xảy ra lỗi.'
+      setHistoryError(msg || 'Không thể tải lịch sử thiết bị')
+      setHistoryItems([])
+      setHistoryTotalItems(0)
+    } finally {
+      setHistoryLoading(false)
+    }
+  }
+
+  const handleOpenHistory = (device: Device) => {
+    setSelectedDevice(device)
+    setHistoryPage(1)
+    setOpenHistoryModal(true)
+    void loadHistory(device.id, 1)
+  }
 
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault()
@@ -145,7 +185,7 @@ export function DevicesPage() {
       <div className="page-header-row">
         <div>
           <h1>Quản lý thiết bị</h1>
-          <p>Quản lý tất cả thiết bị trong hệ thống</p>
+          <p>Quản lý tất cả thiết bị và tra cứu lịch sử vòng đời trong hệ thống</p>
         </div>
         {isAdmin && (
           <button
@@ -166,29 +206,29 @@ export function DevicesPage() {
         </div>
       )}
 
-      {/* 4 Statistics Cards */}
+      {/* 4 Statistics Cards phản ánh số liệu thực từ Database (Phase 8) */}
       <div className="stats-grid">
         <div className="stat-card">
           <div className="stat-card-title">Tổng số thiết bị</div>
-          <div className="stat-card-value">{stats.total}</div>
+          <div className="stat-card-value">{stats?.totalDevices ?? totalItems}</div>
           <div className="stat-card-sub">Tổng tài sản quản lý</div>
         </div>
 
         <div className="stat-card">
           <div className="stat-card-title">Đang sử dụng</div>
-          <div className="stat-card-value" style={{ color: '#2563eb' }}>{stats.inUse}</div>
+          <div className="stat-card-value" style={{ color: '#2563eb' }}>{stats?.inUseDevices ?? 0}</div>
           <div className="stat-card-sub">Đã bàn giao nhân viên</div>
         </div>
 
         <div className="stat-card">
           <div className="stat-card-title">Chưa cấp phát</div>
-          <div className="stat-card-value" style={{ color: '#059669' }}>{stats.available}</div>
+          <div className="stat-card-value" style={{ color: '#059669' }}>{stats?.availableDevices ?? 0}</div>
           <div className="stat-card-sub">Sẵn sàng trong kho</div>
         </div>
 
         <div className="stat-card">
           <div className="stat-card-title">Đang sửa chữa</div>
-          <div className="stat-card-value" style={{ color: '#7c3aed' }}>{stats.underRepair}</div>
+          <div className="stat-card-value" style={{ color: '#7c3aed' }}>{stats?.underRepairDevices ?? 0}</div>
           <div className="stat-card-sub">Bảo trì kỹ thuật</div>
         </div>
       </div>
@@ -285,6 +325,14 @@ export function DevicesPage() {
                             onClick={() => handleOpenDetail(item)}
                           >
                             <Eye size={15} />
+                          </button>
+                          <button
+                            type="button"
+                            className="btn-icon"
+                            title="Xem lịch sử thiết bị (Phase 9)"
+                            onClick={() => handleOpenHistory(item)}
+                          >
+                            <HistoryIcon size={15} />
                           </button>
                           {isAdmin && (
                             <button
@@ -466,6 +514,129 @@ export function DevicesPage() {
                 type="button"
                 className="btn btn-secondary"
                 onClick={() => setOpenDetailModal(false)}
+              >
+                Đóng
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Dialog: Xem Lịch Sử Thiết Bị (Phase 9: Device History) */}
+      {openHistoryModal && selectedDevice && (
+        <div className="modal-backdrop" onClick={() => setOpenHistoryModal(false)}>
+          <div className="modal-container" style={{ maxWidth: '640px' }} onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <HistoryIcon size={18} color="var(--primary)" />
+                <h3 style={{ margin: 0 }}>Lịch sử hoạt động: {selectedDevice.name}</h3>
+              </div>
+              <button
+                type="button"
+                className="modal-close-btn"
+                onClick={() => setOpenHistoryModal(false)}
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="modal-body" style={{ maxHeight: '480px', overflowY: 'auto' }}>
+              <div style={{ fontSize: '13px', color: 'var(--muted-foreground)', marginBottom: '16px' }}>
+                Mã thiết bị: <strong>{selectedDevice.code}</strong> | Serial: <code>{selectedDevice.serialNumber}</code>
+              </div>
+
+              {historyLoading ? (
+                <div style={{ textAlign: 'center', padding: '30px 0', color: 'var(--muted-foreground)' }}>
+                  Đang tải lịch sử thiết bị...
+                </div>
+              ) : historyError ? (
+                <div className="alert-error" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <AlertCircle size={16} />
+                  <span>{historyError}</span>
+                </div>
+              ) : historyItems.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '40px 0', color: 'var(--muted-foreground)' }}>
+                  <Clock size={32} style={{ margin: '0 auto 8px auto', opacity: 0.5 }} />
+                  <div>Chưa có dữ liệu lịch sử nào cho thiết bị này.</div>
+                </div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                  {historyItems.map((entry) => {
+                    const actionBadge = historyActionConfig[entry.action] || {
+                      label: entry.action,
+                      className: 'badge badge-gray',
+                    }
+                    const oldBadge = entry.oldStatus ? deviceStatusConfig[entry.oldStatus] : null
+                    const newBadge = entry.newStatus ? deviceStatusConfig[entry.newStatus] : null
+
+                    return (
+                      <div
+                        key={entry.id}
+                        style={{
+                          padding: '12px 14px',
+                          border: '1px solid var(--border)',
+                          borderRadius: '8px',
+                          backgroundColor: 'var(--secondary)',
+                          fontSize: '13px',
+                        }}
+                      >
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                          <span className={actionBadge.className} style={{ fontWeight: 600 }}>
+                            {actionBadge.label}
+                          </span>
+                          <span style={{ color: 'var(--muted-foreground)', fontSize: '12px' }}>
+                            {new Date(entry.createdAt).toLocaleString('vi-VN')}
+                          </span>
+                        </div>
+
+                        {entry.description && (
+                          <div style={{ margin: '6px 0', color: 'var(--foreground)' }}>
+                            {entry.description}
+                          </div>
+                        )}
+
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '8px', paddingTop: '6px', borderTop: '1px dashed var(--border)', fontSize: '12px', color: 'var(--muted-foreground)' }}>
+                          <div>
+                            {oldBadge && newBadge ? (
+                              <span>
+                                Trạng thái: <span className={oldBadge.className}>{oldBadge.text}</span> &rarr; <span className={newBadge.className}>{newBadge.text}</span>
+                              </span>
+                            ) : newBadge ? (
+                              <span>
+                                Trạng thái mới: <span className={newBadge.className}>{newBadge.text}</span>
+                              </span>
+                            ) : null}
+                          </div>
+                          {entry.createdByUserName && (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                              <User size={12} />
+                              <span>{entry.createdByUserName}</span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+
+              {historyTotalItems > 10 && (
+                <div style={{ marginTop: '16px' }}>
+                  <Pagination
+                    page={historyPage}
+                    pageSize={10}
+                    totalItems={historyTotalItems}
+                    onPageChange={(p) => void loadHistory(selectedDevice.id, p)}
+                  />
+                </div>
+              )}
+            </div>
+
+            <div className="modal-footer">
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={() => setOpenHistoryModal(false)}
               >
                 Đóng
               </button>

@@ -22,9 +22,23 @@ public class DevicesController : ControllerBase
     public async Task<ActionResult<ApiResponse<PagedResult<DeviceDto>>>> GetAsync([FromQuery] DeviceFilterRequest request) =>
         Ok(ApiResponse<PagedResult<DeviceDto>>.Ok(await _service.GetAsync(request)));
 
+    [HttpGet("history")]
+    public async Task<ActionResult<ApiResponse<PagedResult<DeviceHistoryDto>>>> GetAllHistoryAsync(
+        [FromQuery] Guid? deviceId,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 20) =>
+        Ok(ApiResponse<PagedResult<DeviceHistoryDto>>.Ok(await _service.GetAllHistoryAsync(deviceId, page, pageSize)));
+
     [HttpGet("{id:guid}")]
     public async Task<ActionResult<ApiResponse<DeviceDetailDto>>> GetByIdAsync(Guid id) =>
         Ok(ApiResponse<DeviceDetailDto>.Ok(await _service.GetByIdAsync(id)));
+
+    [HttpGet("{id:guid}/history")]
+    public async Task<ActionResult<ApiResponse<PagedResult<DeviceHistoryDto>>>> GetHistoryAsync(
+        Guid id,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 20) =>
+        Ok(ApiResponse<PagedResult<DeviceHistoryDto>>.Ok(await _service.GetHistoryAsync(id, page, pageSize)));
 
     [HttpPost]
     [Authorize(Roles = "Admin")]
@@ -47,4 +61,3 @@ public class DevicesController : ControllerBase
         return NoContent();
     }
 }
-

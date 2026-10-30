@@ -13,13 +13,6 @@ import {
 } from 'lucide-react'
 import { useAuth } from '../../contexts/AuthContext'
 
-interface MenuItem {
-  to: string
-  label: string
-  icon: React.ComponentType<{ size?: number; className?: string }>
-  isDev?: boolean
-}
-
 export function Sidebar() {
   const { profile } = useAuth()
   const isAdmin = profile?.role?.toLowerCase() === 'admin'
@@ -83,7 +76,6 @@ export function Sidebar() {
                 <History size={18} />
                 <span>Lịch sử thiết bị</span>
               </div>
-              <span className="badge-dev">Đang phát triển</span>
             </NavLink>
 
             <NavLink

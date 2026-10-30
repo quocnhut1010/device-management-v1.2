@@ -1,13 +1,39 @@
-import type { ApiResponse, Assignment, AssignmentFilter, Device, DeviceFilter, PagedResult, User, UserFilter } from '../types'
+import type { ApiResponse, Assignment, AssignmentFilter, DashboardStats, Device, DeviceFilter, DeviceHistory, PagedResult, User, UserFilter } from '../types'
 import api from './api'
 
 function compactQuery(params: Record<string, string | number | undefined>) {
   return Object.fromEntries(Object.entries(params).filter(([, value]) => value !== undefined && value !== ''))
 }
 
+export async function getDashboardStats(): Promise<DashboardStats> {
+  const response = await api.get<ApiResponse<DashboardStats>>('/dashboard/stats')
+  return response.data.data
+}
+
 export async function getDevices(filter: DeviceFilter) {
   const response = await api.get<ApiResponse<PagedResult<Device>>>('/devices', {
     params: compactQuery(filter),
+  })
+  return response.data.data
+}
+
+export async function getDeviceHistory(
+  deviceId: string,
+  params?: { page?: number; pageSize?: number }
+): Promise<PagedResult<DeviceHistory>> {
+  const response = await api.get<ApiResponse<PagedResult<DeviceHistory>>>(`/devices/${deviceId}/history`, {
+    params: params ? compactQuery(params) : undefined,
+  })
+  return response.data.data
+}
+
+export async function getAllDeviceHistories(params?: {
+  deviceId?: string
+  page?: number
+  pageSize?: number
+}): Promise<PagedResult<DeviceHistory>> {
+  const response = await api.get<ApiResponse<PagedResult<DeviceHistory>>>('/devices/history', {
+    params: params ? compactQuery(params) : undefined,
   })
   return response.data.data
 }

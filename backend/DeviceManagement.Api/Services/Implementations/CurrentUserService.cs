@@ -13,15 +13,21 @@ public class CurrentUserService : ICurrentUserService
         _httpContextAccessor = httpContextAccessor;
     }
 
-    public Guid GetRequiredUserId()
+    public Guid? GetUserId()
     {
         var value = _httpContextAccessor.HttpContext?.User.FindFirstValue(ClaimTypes.NameIdentifier);
-        if (!Guid.TryParse(value, out var userId))
+        return Guid.TryParse(value, out var userId) ? userId : null;
+    }
+
+    public Guid GetRequiredUserId()
+    {
+        var userId = GetUserId();
+        if (!userId.HasValue)
         {
             throw new UnauthorizedAccessException("Authenticated user ID is missing.");
         }
 
-        return userId;
+        return userId.Value;
     }
 
     public string? GetCurrentRole() => _httpContextAccessor.HttpContext?.User.FindFirstValue(ClaimTypes.Role);

@@ -12,5 +12,6 @@ public interface IDeviceService
     Task<DeviceDto> UpdateAsync(Guid id, UpdateDeviceRequest request);
     Task DeleteAsync(Guid id);
     Task RecalculateStatusAsync(Guid id);
+    Task<PagedResult<DeviceHistoryDto>> GetHistoryAsync(Guid deviceId, int page, int pageSize);
+    Task<PagedResult<DeviceHistoryDto>> GetAllHistoryAsync(Guid? deviceId, int page, int pageSize);
 }
-

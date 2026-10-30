@@ -10,8 +10,8 @@ import {
   TrendingUp,
 } from 'lucide-react'
 import { Link } from 'react-router-dom'
-import { getDevices, getUsers, getAssignments } from '../services/resources'
-import type { Device, User, Assignment } from '../types'
+import { getDashboardStats, getDevices, getUsers, getAssignments } from '../services/resources'
+import type { Device, User, Assignment, DashboardStats } from '../types'
 import { useAuth } from '../contexts/AuthContext'
 
 const assignmentStatusBadge: Record<number, { text: string; className: string }> = {
@@ -26,6 +26,7 @@ export function DashboardPage() {
   const { profile } = useAuth()
   const isAdmin = profile?.role?.toLowerCase() === 'admin'
 
+  const [stats, setStats] = useState<DashboardStats | null>(null)
   const [devices, setDevices] = useState<Device[]>([])
   const [users, setUsers] = useState<User[]>([])
   const [recentAssignments, setRecentAssignments] = useState<Assignment[]>([])
@@ -35,15 +36,19 @@ export function DashboardPage() {
     async function loadDashboardData() {
       try {
         setIsLoading(true)
-        const [devicesRes, assignmentsRes] = await Promise.all([
-          getDevices({ page: 1, pageSize: 100 }),
+        const [statsRes, devicesRes, assignmentsRes] = await Promise.all([
+          getDashboardStats(),
+          getDevices({ page: 1, pageSize: 50 }),
           getAssignments({ page: 1, pageSize: 5 }),
         ])
+        setStats(statsRes)
         setDevices(devicesRes.items)
         setRecentAssignments(assignmentsRes.items)
 
-        const usersRes = await getUsers({ page: 1, pageSize: 100 })
-        setUsers(usersRes.items)
+        if (isAdmin) {
+          const usersRes = await getUsers({ page: 1, pageSize: 50 })
+          setUsers(usersRes.items)
+        }
       } catch (err) {
         console.error('Lỗi tải dữ liệu dashboard:', err)
       } finally {
@@ -52,7 +57,7 @@ export function DashboardPage() {
     }
 
     loadDashboardData()
-  }, [])
+  }, [isAdmin])
 
   const deviceNameById = useMemo(
     () => Object.fromEntries(devices.map(d => [d.id, d.name])),
@@ -63,12 +68,6 @@ export function DashboardPage() {
     [users]
   )
 
-  // Status: 1 = Available, 2 = PendingAssignment, 3 = InUse, 4 = UnderRepair, 5 = Disposed
-  const totalDevices = devices.length
-  const availableDevices = devices.filter(d => d.status === 1).length
-  const inUseDevices = devices.filter(d => d.status === 3).length
-  const pendingDevices = devices.filter(d => d.status === 2).length
-
   return (
     <div>
       <div className="page-header">
@@ -78,7 +77,7 @@ export function DashboardPage() {
         </p>
       </div>
 
-      {/* Thống kê dạng thẻ (Stats Cards) */}
+      {/* Thống kê dạng thẻ (Stats Cards) phản ánh toàn bộ dữ liệu từ Database */}
       <div className="stats-grid">
         <div className="stat-card">
           <div className="stat-icon-wrapper stat-icon-blue">
@@ -86,7 +85,7 @@ export function DashboardPage() {
           </div>
           <div className="stat-details">
             <h4>Tổng số thiết bị</h4>
-            <div className="stat-number">{isLoading ? '...' : totalDevices}</div>
+            <div className="stat-number">{isLoading ? '...' : (stats?.totalDevices ?? 0)}</div>
           </div>
         </div>
 
@@ -96,7 +95,7 @@ export function DashboardPage() {
           </div>
           <div className="stat-details">
             <h4>Sẵn sàng cấp phát</h4>
-            <div className="stat-number">{isLoading ? '...' : availableDevices}</div>
+            <div className="stat-number">{isLoading ? '...' : (stats?.availableDevices ?? 0)}</div>
           </div>
         </div>
 
@@ -106,7 +105,7 @@ export function DashboardPage() {
           </div>
           <div className="stat-details">
             <h4>Đang được sử dụng</h4>
-            <div className="stat-number">{isLoading ? '...' : inUseDevices}</div>
+            <div className="stat-number">{isLoading ? '...' : (stats?.inUseDevices ?? 0)}</div>
           </div>
         </div>
 
@@ -116,18 +115,28 @@ export function DashboardPage() {
           </div>
           <div className="stat-details">
             <h4>Chờ duyệt bàn giao</h4>
-            <div className="stat-number">{isLoading ? '...' : pendingDevices}</div>
+            <div className="stat-number">{isLoading ? '...' : (stats?.pendingDevices ?? 0)}</div>
           </div>
         </div>
 
-        {isAdmin && (
+        {isAdmin ? (
           <div className="stat-card">
             <div className="stat-icon-wrapper stat-icon-blue">
               <Users size={24} />
             </div>
             <div className="stat-details">
               <h4>Tổng người dùng</h4>
-              <div className="stat-number">{isLoading ? '...' : users.length}</div>
+              <div className="stat-number">{isLoading ? '...' : (stats?.totalUsers ?? 0)}</div>
+            </div>
+          </div>
+        ) : (
+          <div className="stat-card">
+            <div className="stat-icon-wrapper stat-icon-blue">
+              <UserCheck size={24} />
+            </div>
+            <div className="stat-details">
+              <h4>Phiếu của tôi</h4>
+              <div className="stat-number">{isLoading ? '...' : (stats?.myAssignments ?? 0)}</div>
             </div>
           </div>
         )}
@@ -250,7 +259,7 @@ export function DashboardPage() {
                         <td style={{ fontWeight: 500 }}>
                           {deviceNameById[item.deviceId] || item.deviceId}
                         </td>
-                        <td>{userNameById[item.userId] || item.userId}</td>
+                        <td>{userNameById[item.userId] || (item.userId === profile?.userId ? 'Tôi' : item.userId)}</td>
                         <td>
                           <span className={badge.className}>{badge.text}</span>
                         </td>

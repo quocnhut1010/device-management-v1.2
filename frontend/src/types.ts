@@ -86,3 +86,28 @@ export type AssignmentFilter = {
   page: number
   pageSize: number
 }
+
+export type DeviceHistory = {
+  id: string
+  deviceId: string
+  action: string
+  oldStatus: DeviceStatus | null
+  newStatus: DeviceStatus | null
+  description: string | null
+  createdByUserId: string | null
+  createdByUserName: string | null
+  createdAt: string
+  deviceName?: string | null
+}
+
+export type DashboardStats = {
+  totalDevices: number
+  availableDevices: number
+  inUseDevices: number
+  pendingDevices: number
+  underRepairDevices: number
+  disposedDevices: number
+  totalUsers: number
+  pendingAssignments: number
+  myAssignments: number
+}

@@ -6,6 +6,7 @@ import { DashboardPage } from './pages/DashboardPage'
 import { DevicesPage } from './pages/DevicesPage'
 import { UsersPage } from './pages/UsersPage'
 import { AssignmentsPage } from './pages/AssignmentsPage'
+import { DeviceHistoryPage } from './pages/DeviceHistoryPage'
 import { PlaceholderPage } from './pages/PlaceholderPage'
 
 function ProtectedRoute() {
@@ -36,19 +37,11 @@ export function AppRouter() {
           <Route path="/" element={<Navigate to="/dashboard" replace />} />
           <Route path="/dashboard" element={<DashboardPage />} />
           <Route path="/devices" element={<DevicesPage />} />
+          <Route path="/device-history" element={<DeviceHistoryPage />} />
           <Route path="/assignments" element={<AssignmentsPage />} />
           <Route path="/users" element={<UsersPage />} />
 
-          {/* Các module đang phát triển theo Roadmap */}
-          <Route
-            path="/device-history"
-            element={
-              <PlaceholderPage
-                title="Lịch sử thiết bị"
-                moduleName="Lịch sử thiết bị (Audit Log)"
-              />
-            }
-          />
+          {/* Các module ứng viên tương lai theo Roadmap */}
           <Route
             path="/device-categories"
             element={
