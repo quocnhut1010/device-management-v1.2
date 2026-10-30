@@ -139,15 +139,85 @@ Acceptance criteria:
 - Existing device and assignment workflows continue to work.
 - Update this roadmap with verified results. Do not mark the phase complete if a required check is blocked.
 
+## Phase 10: Department and Device Catalog Management
+
+Goal:
+
+- Replace free-text department and device type/model values with manageable reference data where appropriate.
+
+Scope:
+
+- Add department management for Admin.
+- Add device type and model management for Admin.
+- Use catalog references when creating or updating a device.
+- Before changing the current `Device.Category` and `Device.Model` fields, inspect existing data and define a migration that preserves existing values. Do not drop or overwrite existing values without an explicit mapping.
+- Keep this phase limited to departments, device types, and models. Supplier management is a later candidate.
+
+Acceptance criteria:
+
+- Admin can create, view, update, and deactivate catalog entries.
+- Existing devices remain readable after migration; mapped type/model values display correctly.
+- Invalid or inactive catalog references are rejected by the backend.
+- Referenced catalog entries cannot be deleted in a way that breaks existing devices or users.
+- API and browser checks cover Admin management and normal user read/use flows.
+- Backend and frontend builds succeed; update this roadmap with verified results.
+
+## Phase 11: Incident Reporting
+
+Goal:
+
+- Let Employees report and track incidents associated with devices.
+
+Scope:
+
+- Employees can create incidents for devices they are allowed to access and view only their own incidents.
+- Admin can view all incidents, set severity, and update the incident status.
+- Define and enforce the incident status transitions in the backend.
+- Record incident creation and status changes in device history.
+- Decide the attachment storage and validation approach before implementing image uploads. Do not store uploaded files in the database or repository by default.
+- Keep repair-order creation in Phase 12.
+
+Acceptance criteria:
+
+- Employee cannot create an incident for an unrelated device or read another Employee's incident.
+- Admin can review incidents and perform only valid status transitions.
+- Incident list filters and pagination return consistent results.
+- Relevant events appear in the device history.
+- API and browser checks cover Admin and Employee permissions, validation failures, and status transitions.
+- Backend and frontend builds succeed; update this roadmap with verified results.
+
+## Phase 12: Repair and Maintenance Workflow
+
+Goal:
+
+- Manage repair work from an approved incident through assignment, progress, and completion.
+
+Scope:
+
+- Define a Technician role and its backend authorization rules before adding repair screens.
+- Admin can create or approve a repair order from an incident and assign it to a Technician.
+- Technician can view only assigned repair orders and update allowed progress/status fields.
+- Admin can review completion and close the repair order.
+- Record repair assignment, status changes, and completion in device history; recalculate device status consistently.
+- Include repair cost and completion notes. Define SLA tracking, image attachments, and cost approval rules separately before implementation if required.
+
+Acceptance criteria:
+
+- Employee, Admin, and Technician permissions are enforced by the backend, including direct API requests.
+- Only valid repair status transitions are accepted.
+- Completing or closing a repair updates device availability according to active assignments and repair state.
+- Repair events appear in device history with actor and timestamp.
+- API and browser checks cover the incident-to-repair flow and each role.
+- Backend and frontend builds succeed; update this roadmap with verified results.
+
 ## Later Module Candidates
 
-Keep these as future candidates. Do not include them in Phases 8 or 9:
+Do not include these in Phases 10–12:
 
-- Device categories and models.
-- Department management.
-- Incident reporting.
-- Repair and maintenance workflow.
-- Notifications and reporting.
-- Replacement, liquidation, and mobile QR flows.
+- Device replacement and liquidation.
+- Supplier management.
+- Notifications and report export.
+- AI Chat and AI-generated reports.
+- Mobile app and QR scanning.
 
 Before starting a candidate, define its business workflow, roles and permissions, data changes, and acceptance criteria in its own milestone plan.
