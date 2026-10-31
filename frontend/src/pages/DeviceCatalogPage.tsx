@@ -517,16 +517,16 @@ export function DeviceCatalogPage() {
           {/* Types Table */}
           <div className="card" style={{ overflow: 'hidden' }}>
             <div className="table-responsive">
-              <table className="table">
+              <table className="data-table">
                 <thead>
                   <tr>
-                    <th>Mã loại</th>
-                    <th>Tên loại thiết bị</th>
-                    <th>Mô tả</th>
-                    <th>Số Model</th>
-                    <th>Số thiết bị</th>
-                    <th>Trạng thái</th>
-                    <th style={{ textAlign: 'right' }}>Thao tác</th>
+                    <th style={{ width: '15%' }}>Mã loại</th>
+                    <th style={{ width: '22%' }}>Tên loại thiết bị</th>
+                    <th style={{ width: '25%' }}>Mô tả</th>
+                    <th style={{ width: '10%' }}>Số Model</th>
+                    <th style={{ width: '10%' }}>Số thiết bị</th>
+                    <th style={{ width: '10%' }}>Trạng thái</th>
+                    <th style={{ width: '8%', textAlign: 'right' }}>Thao tác</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -698,17 +698,17 @@ export function DeviceCatalogPage() {
           {/* Models Table */}
           <div className="card" style={{ overflow: 'hidden' }}>
             <div className="table-responsive">
-              <table className="table">
+              <table className="data-table">
                 <thead>
                   <tr>
-                    <th>Mã model</th>
-                    <th>Tên Model</th>
-                    <th>Loại thiết bị</th>
-                    <th>Hãng sản xuất</th>
-                    <th>Thông số kỹ thuật</th>
-                    <th>Số thiết bị</th>
-                    <th>Trạng thái</th>
-                    <th style={{ textAlign: 'right' }}>Thao tác</th>
+                    <th style={{ width: '13%' }}>Mã model</th>
+                    <th style={{ width: '15%' }}>Tên Model</th>
+                    <th style={{ width: '12%' }}>Loại thiết bị</th>
+                    <th style={{ width: '10%' }}>Hãng sản xuất</th>
+                    <th style={{ width: '26%' }}>Thông số kỹ thuật</th>
+                    <th style={{ width: '8%' }}>Số thiết bị</th>
+                    <th style={{ width: '9%' }}>Trạng thái</th>
+                    <th style={{ width: '7%', textAlign: 'right' }}>Thao tác</th>
                   </tr>
                 </thead>
                 <tbody>

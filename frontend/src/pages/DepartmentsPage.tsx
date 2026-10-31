@@ -259,10 +259,11 @@ export function DepartmentsPage() {
         </div>
       </div>
 
-      {/* Filter Bar */}
-      <div className="card" style={{ marginBottom: '16px', padding: '16px' }}>
-        <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'center' }}>
-          <div className="search-input-wrapper" style={{ flex: '1 1 250px' }}>
+      {/* Table Card */}
+      <div className="card">
+        {/* Toolbar */}
+        <div className="toolbar">
+          <div className="search-input-wrapper">
             <Search size={16} className="search-icon" />
             <input
               type="text"
@@ -273,32 +274,28 @@ export function DepartmentsPage() {
             />
           </div>
 
-          <div style={{ width: '180px' }}>
-            <select
-              className="input"
-              value={statusFilter}
-              onChange={e => setStatusFilter(e.target.value as any)}
-            >
-              <option value="all">Tất cả trạng thái</option>
-              <option value="active">Đang hoạt động</option>
-              <option value="inactive">Đã vô hiệu hóa</option>
-            </select>
-          </div>
+          <select
+            className="select"
+            value={statusFilter}
+            onChange={e => setStatusFilter(e.target.value as any)}
+          >
+            <option value="all">Tất cả trạng thái</option>
+            <option value="active">Đang hoạt động</option>
+            <option value="inactive">Đã vô hiệu hóa</option>
+          </select>
         </div>
-      </div>
 
-      {/* Departments Table */}
-      <div className="card" style={{ overflow: 'hidden' }}>
+        {/* Departments Table */}
         <div className="table-responsive">
-          <table className="table">
+          <table className="data-table">
             <thead>
               <tr>
-                <th>Mã phòng ban</th>
-                <th>Tên phòng ban</th>
-                <th>Nhân sự</th>
-                <th>Trạng thái</th>
-                <th>Ngày tạo</th>
-                <th style={{ textAlign: 'right' }}>Thao tác</th>
+                <th style={{ width: '16%' }}>Mã phòng ban</th>
+                <th style={{ width: '30%' }}>Tên phòng ban</th>
+                <th style={{ width: '16%' }}>Nhân sự</th>
+                <th style={{ width: '16%' }}>Trạng thái</th>
+                <th style={{ width: '12%' }}>Ngày tạo</th>
+                <th style={{ width: '10%', textAlign: 'right' }}>Thao tác</th>
               </tr>
             </thead>
             <tbody>
@@ -310,7 +307,7 @@ export function DepartmentsPage() {
                 </tr>
               ) : filteredDepartments.length === 0 ? (
                 <tr>
-                  <td colSpan={6} style={{ textAlign: 'center', padding: '32px', color: '#6b7280' }}>
+                  <td colSpan={6} style={{ textAlign: 'center', padding: '32px', color: 'var(--muted-foreground)' }}>
                     Không tìm thấy phòng ban nào phù hợp.
                   </td>
                 </tr>
@@ -318,17 +315,17 @@ export function DepartmentsPage() {
                 filteredDepartments.map(dept => (
                   <tr key={dept.id}>
                     <td>
-                      <span style={{ fontWeight: 600, color: '#1e293b' }}>{dept.code}</span>
+                      <span style={{ fontWeight: 600 }}>{dept.code}</span>
                     </td>
                     <td>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <Building2 size={16} style={{ color: '#64748b' }} />
+                        <Building2 size={16} style={{ color: 'var(--muted-foreground)' }} />
                         <span style={{ fontWeight: 500 }}>{dept.name}</span>
                       </div>
                     </td>
                     <td>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                        <Users size={14} style={{ color: '#64748b' }} />
+                        <Users size={14} style={{ color: 'var(--muted-foreground)' }} />
                         <span>{dept.userCount} người</span>
                       </div>
                     </td>
@@ -337,16 +334,16 @@ export function DepartmentsPage() {
                         {dept.isActive ? 'Đang hoạt động' : 'Đã vô hiệu hóa'}
                       </span>
                     </td>
-                    <td style={{ color: '#64748b', fontSize: '13px' }}>
+                    <td style={{ color: 'var(--muted-foreground)', fontSize: '13px' }}>
                       {formatDate(dept.createdAt)}
                     </td>
                     <td style={{ textAlign: 'right' }}>
-                      <div style={{ display: 'inline-flex', gap: '6px' }}>
+                      <div style={{ display: 'inline-flex', gap: '6px', justifyContent: 'flex-end' }}>
                         {isAdmin && (
                           <>
                             <button
                               type="button"
-                              className="btn btn-secondary btn-icon"
+                              className="btn-icon"
                               title="Chỉnh sửa phòng ban"
                               onClick={() => handleOpenEdit(dept)}
                             >
@@ -354,7 +351,7 @@ export function DepartmentsPage() {
                             </button>
                             <button
                               type="button"
-                              className="btn btn-secondary btn-icon"
+                              className="btn-icon"
                               title={dept.isActive ? 'Vô hiệu hóa' : 'Kích hoạt'}
                               style={{ color: dept.isActive ? '#d97706' : '#059669' }}
                               onClick={() => handleToggleStatus(dept)}
@@ -363,9 +360,8 @@ export function DepartmentsPage() {
                             </button>
                             <button
                               type="button"
-                              className="btn btn-secondary btn-icon"
+                              className="btn-icon btn-icon-danger"
                               title="Xóa phòng ban"
-                              style={{ color: '#ef4444' }}
                               onClick={() => setDeptToDelete(dept)}
                             >
                               <Trash2 size={15} />

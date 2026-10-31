@@ -1231,14 +1231,16 @@ button, input, select, textarea {
   background-color: var(--card);
 }
 
-.data-table {
+.data-table,
+.table {
   width: 100%;
   border-collapse: collapse;
   text-align: left;
   font-size: 13.5px;
 }
 
-.data-table th {
+.data-table th,
+.table th {
   background-color: var(--secondary);
   color: var(--muted-foreground);
   font-weight: 600;
@@ -1249,17 +1251,20 @@ button, input, select, textarea {
   border-bottom: 1px solid var(--card-border);
 }
 
-.data-table td {
+.data-table td,
+.table td {
   padding: 14px 16px;
   border-bottom: 1px solid var(--card-border);
   color: var(--foreground);
 }
 
-.data-table tbody tr:last-child td {
+.data-table tbody tr:last-child td,
+.table tbody tr:last-child td {
   border-bottom: none;
 }
 
-.data-table tbody tr:hover {
+.data-table tbody tr:hover,
+.table tbody tr:hover {
   background-color: var(--secondary);
 }
 
