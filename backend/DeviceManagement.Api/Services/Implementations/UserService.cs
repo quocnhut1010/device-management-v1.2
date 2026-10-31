@@ -72,6 +72,12 @@ public class UserService : IUserService
             }
         }
 
+        var role = !string.IsNullOrWhiteSpace(request.Role) ? request.Role.Trim() : "Employee";
+        if (role is not ("Admin" or "Employee" or "Technician"))
+        {
+            throw new BusinessException($"Vai trò '{role}' không hợp lệ. Chỉ chấp nhận Admin, Employee hoặc Technician.");
+        }
+
         var user = new User
         {
             Id = Guid.NewGuid(),
@@ -80,7 +86,7 @@ public class UserService : IUserService
             FullName = request.FullName,
             Email = request.Email,
             PhoneNumber = request.PhoneNumber,
-            Role = "Employee",
+            Role = role,
             Status = UserStatus.Active,
             CreatedAt = DateTime.UtcNow
         };
@@ -107,6 +113,16 @@ public class UserService : IUserService
             {
                 throw new BusinessException("Phòng ban đã bị vô hiệu hóa hoặc không hợp lệ.");
             }
+        }
+
+        if (!string.IsNullOrWhiteSpace(request.Role))
+        {
+            var role = request.Role.Trim();
+            if (role is not ("Admin" or "Employee" or "Technician"))
+            {
+                throw new BusinessException($"Vai trò '{role}' không hợp lệ. Chỉ chấp nhận Admin, Employee hoặc Technician.");
+            }
+            user.Role = role;
         }
 
         user.DepartmentId = department?.Id;

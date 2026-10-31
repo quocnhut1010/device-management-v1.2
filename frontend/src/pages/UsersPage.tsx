@@ -9,8 +9,12 @@ import {
   X,
   UserPlus,
   Building,
+  Edit2,
+  Save,
+  ShieldCheck,
+  Wrench,
 } from 'lucide-react'
-import { getUsers, createUser, deleteUser, getDepartments } from '../services/resources'
+import { getUsers, createUser, updateUser, deleteUser, getDepartments } from '../services/resources'
 import type { Department, User, UserStatus } from '../types'
 import { Pagination } from '../components/Pagination'
 import { useAuth } from '../contexts/AuthContext'
@@ -18,6 +22,12 @@ import { useAuth } from '../contexts/AuthContext'
 const userStatusConfig: Record<UserStatus, { text: string; className: string }> = {
   1: { text: 'Đang hoạt động', className: 'badge badge-green' },
   2: { text: 'Ngưng hoạt động', className: 'badge badge-red' },
+}
+
+const userRoleConfig: Record<string, { text: string; className: string }> = {
+  Admin: { text: 'Quản trị viên', className: 'badge badge-blue' },
+  Technician: { text: 'Kỹ thuật viên', className: 'badge badge-purple' },
+  Employee: { text: 'Nhân viên', className: 'badge badge-gray' },
 }
 
 export function UsersPage() {
@@ -37,6 +47,7 @@ export function UsersPage() {
 
   // Dialog states
   const [openCreateModal, setOpenCreateModal] = useState(false)
+  const [openEditModal, setOpenEditModal] = useState(false)
   const [openDetailModal, setOpenDetailModal] = useState(false)
   const [selectedUser, setSelectedUser] = useState<User | null>(null)
   const [submitting, setSubmitting] = useState(false)
@@ -47,6 +58,18 @@ export function UsersPage() {
     email: '',
     phoneNumber: '',
     departmentId: '',
+    role: 'Employee',
+  })
+
+  const [editForm, setEditForm] = useState({
+    id: '',
+    code: '',
+    fullName: '',
+    email: '',
+    phoneNumber: '',
+    departmentId: '',
+    status: 1 as UserStatus,
+    role: 'Employee',
   })
 
   useEffect(() => {
@@ -97,14 +120,15 @@ export function UsersPage() {
     }
   }
 
-  // 4 Statistics calculations
+  // Statistics calculations
   const stats = useMemo(() => {
     const list = allItemsForStats.length > 0 ? allItemsForStats : items
     const total = list.length
     const active = list.filter(u => u.status === 1).length
-    const adminCount = list.filter(u => u.code?.toUpperCase().includes('ADMIN') || u.email?.includes('admin')).length
-    const employeeCount = total - adminCount
-    return { total, active, adminCount, employeeCount }
+    const adminCount = list.filter(u => u.role?.toLowerCase() === 'admin' || u.code?.toUpperCase().includes('ADMIN')).length
+    const technicianCount = list.filter(u => u.role?.toLowerCase() === 'technician').length
+    const employeeCount = total - adminCount - technicianCount
+    return { total, active, adminCount, technicianCount, employeeCount }
   }, [allItemsForStats, items])
 
   async function handleCreate(e: React.FormEvent) {
@@ -120,9 +144,10 @@ export function UsersPage() {
         email: createForm.email.trim(),
         phoneNumber: createForm.phoneNumber.trim() || undefined,
         departmentId: createForm.departmentId || undefined,
+        role: createForm.role || 'Employee',
       })
       setOpenCreateModal(false)
-      setCreateForm({ code: '', fullName: '', email: '', phoneNumber: '', departmentId: '' })
+      setCreateForm({ code: '', fullName: '', email: '', phoneNumber: '', departmentId: '', role: 'Employee' })
       await Promise.all([loadData(), loadStatsData()])
     } catch (err: unknown) {
       const msg =
@@ -130,6 +155,48 @@ export function UsersPage() {
           ? (err as { response?: { data?: { message?: string } } }).response?.data?.message
           : 'Thêm người dùng thất bại.'
       setError(msg || 'Lỗi thêm người dùng')
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  function handleOpenEdit(user: User) {
+    setEditForm({
+      id: user.id,
+      code: user.code,
+      fullName: user.fullName,
+      email: user.email,
+      phoneNumber: user.phoneNumber || '',
+      departmentId: user.departmentId || '',
+      status: user.status,
+      role: user.role || 'Employee',
+    })
+    setOpenEditModal(true)
+  }
+
+  async function handleUpdate(e: React.FormEvent) {
+    e.preventDefault()
+    if (!editForm.id || !editForm.fullName || !editForm.email) return
+
+    setSubmitting(true)
+    setError('')
+    try {
+      await updateUser(editForm.id, {
+        fullName: editForm.fullName.trim(),
+        email: editForm.email.trim(),
+        phoneNumber: editForm.phoneNumber.trim() || undefined,
+        departmentId: editForm.departmentId || undefined,
+        status: editForm.status,
+        role: editForm.role,
+      })
+      setOpenEditModal(false)
+      await Promise.all([loadData(), loadStatsData()])
+    } catch (err: unknown) {
+      const msg =
+        err && typeof err === 'object' && 'response' in err
+          ? (err as { response?: { data?: { message?: string } } }).response?.data?.message
+          : 'Cập nhật người dùng thất bại.'
+      setError(msg || 'Lỗi cập nhật người dùng')
     } finally {
       setSubmitting(false)
     }
@@ -202,9 +269,11 @@ export function UsersPage() {
         </div>
 
         <div className="stat-card">
-          <div className="stat-card-title">Nhân viên thông thường</div>
-          <div className="stat-card-value" style={{ color: '#d97706' }}>{stats.employeeCount}</div>
-          <div className="stat-card-sub">Người sử dụng thiết bị</div>
+          <div className="stat-card-title">Kỹ thuật viên & Nhân viên</div>
+          <div className="stat-card-value" style={{ color: '#7c3aed' }}>
+            {stats.technicianCount} <span style={{ fontSize: '14px', fontWeight: 500, color: 'var(--muted-foreground)' }}>KTV</span> / {stats.employeeCount} <span style={{ fontSize: '14px', fontWeight: 500, color: 'var(--muted-foreground)' }}>NV</span>
+          </div>
+          <div className="stat-card-sub">Kỹ thuật & người dùng thiết bị</div>
         </div>
       </div>
 
@@ -249,19 +318,23 @@ export function UsersPage() {
             <table className="data-table">
               <thead>
                 <tr>
-                  <th>Mã NV</th>
-                  <th>Họ và tên</th>
-                  <th>Phòng ban</th>
-                  <th>Email</th>
-                  <th>Số điện thoại</th>
-                  <th>Trạng thái</th>
-                  <th style={{ textAlign: 'right' }}>Hành động</th>
+                  <th style={{ width: '12%' }}>Mã NV</th>
+                  <th style={{ width: '22%' }}>Họ và tên</th>
+                  <th style={{ width: '16%' }}>Phòng ban</th>
+                  <th style={{ width: '14%' }}>Vai trò</th>
+                  <th style={{ width: '18%' }}>Email</th>
+                  <th style={{ width: '10%' }}>Trạng thái</th>
+                  <th style={{ width: '8%', textAlign: 'right' }}>Hành động</th>
                 </tr>
               </thead>
               <tbody>
                 {items.map(item => {
                   const badge = userStatusConfig[item.status] || {
                     text: `Trạng thái ${item.status}`,
+                    className: 'badge badge-gray',
+                  }
+                  const roleBadge = userRoleConfig[item.role || 'Employee'] || {
+                    text: item.role || 'Nhân viên',
                     className: 'badge badge-gray',
                   }
                   const initial = item.fullName ? item.fullName.charAt(0).toUpperCase() : 'U'
@@ -283,13 +356,15 @@ export function UsersPage() {
                           <span>{item.departmentName || '—'}</span>
                         </div>
                       </td>
+                      <td>
+                        <span className={roleBadge.className}>{roleBadge.text}</span>
+                      </td>
                       <td style={{ color: 'var(--muted-foreground)' }}>{item.email}</td>
-                      <td>{item.phoneNumber || '-'}</td>
                       <td>
                         <span className={badge.className}>{badge.text}</span>
                       </td>
                       <td style={{ textAlign: 'right' }}>
-                        <div style={{ display: 'inline-flex', gap: '8px', alignItems: 'center' }}>
+                        <div style={{ display: 'inline-flex', gap: '6px', alignItems: 'center' }}>
                           <button
                             type="button"
                             className="btn-icon"
@@ -299,14 +374,24 @@ export function UsersPage() {
                             <Eye size={15} />
                           </button>
                           {isAdmin && (
-                            <button
-                              type="button"
-                              className="btn-icon btn-icon-danger"
-                              title="Xóa người dùng"
-                              onClick={() => handleDelete(item.id)}
-                            >
-                              <Trash2 size={15} />
-                            </button>
+                            <>
+                              <button
+                                type="button"
+                                className="btn-icon"
+                                title="Chỉnh sửa thông tin & Vai trò"
+                                onClick={() => handleOpenEdit(item)}
+                              >
+                                <Edit2 size={15} />
+                              </button>
+                              <button
+                                type="button"
+                                className="btn-icon btn-icon-danger"
+                                title="Xóa người dùng"
+                                onClick={() => handleDelete(item.id)}
+                              >
+                                <Trash2 size={15} />
+                              </button>
+                            </>
                           )}
                         </div>
                       </td>
@@ -364,6 +449,20 @@ export function UsersPage() {
                         {d.name} ({d.code})
                       </option>
                     ))}
+                  </select>
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">Vai trò trong hệ thống *</label>
+                  <select
+                    className="input"
+                    value={createForm.role}
+                    onChange={e => setCreateForm({ ...createForm, role: e.target.value })}
+                    required
+                  >
+                    <option value="Employee">Nhân viên (Employee)</option>
+                    <option value="Technician">Kỹ thuật viên (Technician)</option>
+                    <option value="Admin">Quản trị viên (Admin)</option>
                   </select>
                 </div>
 
@@ -435,6 +534,129 @@ export function UsersPage() {
         </div>
       )}
 
+      {/* Modal Dialog: Chỉnh sửa người dùng */}
+      {openEditModal && (
+        <div className="modal-backdrop" onClick={() => setOpenEditModal(false)}>
+          <div className="modal-container" onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>Chỉnh sửa người dùng & Phân quyền</h3>
+              <button
+                type="button"
+                className="modal-close-btn"
+                onClick={() => setOpenEditModal(false)}
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <form onSubmit={handleUpdate}>
+              <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                <div className="form-group">
+                  <label className="form-label">Mã nhân viên</label>
+                  <input
+                    className="input"
+                    value={editForm.code}
+                    disabled
+                    style={{ opacity: 0.7, cursor: 'not-allowed' }}
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">Vai trò trong hệ thống *</label>
+                  <select
+                    className="input"
+                    value={editForm.role}
+                    onChange={e => setEditForm({ ...editForm, role: e.target.value })}
+                    required
+                  >
+                    <option value="Employee">Nhân viên (Employee)</option>
+                    <option value="Technician">Kỹ thuật viên (Technician)</option>
+                    <option value="Admin">Quản trị viên (Admin)</option>
+                  </select>
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">Phòng ban</label>
+                  <select
+                    className="input"
+                    value={editForm.departmentId}
+                    onChange={e => setEditForm({ ...editForm, departmentId: e.target.value })}
+                  >
+                    <option value="">-- Không trực thuộc / Chưa gán --</option>
+                    {departments.map(d => (
+                      <option key={d.id} value={d.id}>
+                        {d.name} ({d.code})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">Họ và tên *</label>
+                  <input
+                    className="input"
+                    value={editForm.fullName}
+                    onChange={e => setEditForm({ ...editForm, fullName: e.target.value })}
+                    required
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">Địa chỉ Email *</label>
+                  <input
+                    type="email"
+                    className="input"
+                    value={editForm.email}
+                    onChange={e => setEditForm({ ...editForm, email: e.target.value })}
+                    required
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">Số điện thoại</label>
+                  <input
+                    className="input"
+                    value={editForm.phoneNumber}
+                    onChange={e => setEditForm({ ...editForm, phoneNumber: e.target.value })}
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">Trạng thái tài khoản</label>
+                  <select
+                    className="input"
+                    value={editForm.status}
+                    onChange={e => setEditForm({ ...editForm, status: Number(e.target.value) as UserStatus })}
+                  >
+                    <option value={1}>Đang hoạt động</option>
+                    <option value={2}>Ngưng hoạt động</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="modal-footer">
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={() => setOpenEditModal(false)}
+                  disabled={submitting}
+                >
+                  Hủy
+                </button>
+                <button
+                  type="submit"
+                  className="btn btn-primary"
+                  disabled={submitting || !editForm.fullName || !editForm.email}
+                >
+                  <Save size={16} />
+                  <span>{submitting ? 'Đang cập nhật...' : 'Cập nhật thay đổi'}</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       {/* Modal Dialog: Xem chi tiết người dùng */}
       {openDetailModal && selectedUser && (
         <div className="modal-backdrop" onClick={() => setOpenDetailModal(false)}>
@@ -464,7 +686,11 @@ export function UsersPage() {
                 <span className="detail-value">{selectedUser.departmentName || '-'}</span>
 
                 <span className="detail-label">Vai trò:</span>
-                <span className="detail-value">{selectedUser.role || 'Employee'}</span>
+                <span className="detail-value">
+                  <span className={userRoleConfig[selectedUser.role || 'Employee']?.className}>
+                    {userRoleConfig[selectedUser.role || 'Employee']?.text}
+                  </span>
+                </span>
 
                 <span className="detail-label">Email:</span>
                 <span className="detail-value">{selectedUser.email}</span>

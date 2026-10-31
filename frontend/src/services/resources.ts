@@ -18,6 +18,7 @@ import type {
   PagedResult,
   User,
   UserFilter,
+  UserStatus,
   Incident,
   IncidentFilter,
   CreateIncidentInput,
@@ -207,8 +208,24 @@ export async function createUser(payload: {
   email: string
   phoneNumber?: string
   departmentId?: string | null
+  role?: string
 }) {
   const response = await api.post<ApiResponse<User>>('/users', payload)
+  return response.data.data
+}
+
+export async function updateUser(
+  id: string,
+  payload: {
+    fullName: string
+    email: string
+    phoneNumber?: string
+    departmentId?: string | null
+    status: UserStatus
+    role?: string
+  }
+) {
+  const response = await api.put<ApiResponse<User>>(`/users/${id}`, payload)
   return response.data.data
 }
 

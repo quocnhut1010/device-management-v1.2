@@ -7,5 +7,5 @@ public record UpdateUserRequest(
     string FullName,
     string Email,
     string? PhoneNumber,
-    UserStatus Status);
-
+    UserStatus Status,
+    string? Role = null);

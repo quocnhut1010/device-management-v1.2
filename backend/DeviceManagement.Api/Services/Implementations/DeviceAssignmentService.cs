@@ -210,9 +210,9 @@ public class DeviceAssignmentService : IDeviceAssignmentService
 
         if (nextStatus == DeviceAssignmentStatus.Returned)
         {
-            if (assignment.Device.Status != DeviceStatus.InUse)
+            if (assignment.Device.Status is not (DeviceStatus.InUse or DeviceStatus.UnderRepair))
             {
-                throw new BusinessException("Device is not currently in use.");
+                throw new BusinessException("Device is not currently in use or under repair.");
             }
 
             var activeAcceptedAssignment = await _assignmentRepository.GetActiveAcceptedAssignmentAsync(assignment.DeviceId);

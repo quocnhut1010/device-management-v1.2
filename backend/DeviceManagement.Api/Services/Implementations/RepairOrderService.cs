@@ -98,6 +98,16 @@ public class RepairOrderService : IRepairOrderService
         var device = await _deviceRepository.GetByIdAsync(request.DeviceId)
             ?? throw new NotFoundException("Thiết bị không tồn tại.");
 
+        if (device.Status == DeviceStatus.Disposed)
+        {
+            throw new BusinessException("Không thể tạo lệnh sửa chữa cho thiết bị đã thanh lý.");
+        }
+
+        if (device.Status == DeviceStatus.UnderRepair || await _repairOrderRepository.HasActiveRepairForDeviceAsync(device.Id))
+        {
+            throw new BusinessException("Thiết bị này đang trong trạng thái sửa chữa hoặc có lệnh sửa chữa khác chưa hoàn tất.");
+        }
+
         Incident? incident = null;
         if (request.IncidentId.HasValue)
         {
@@ -172,8 +182,6 @@ public class RepairOrderService : IRepairOrderService
         };
 
         await _repairOrderRepository.AddAsync(order);
-        await _unitOfWork.SaveChangesAsync();
-
         await _deviceHistoryRepository.AddAsync(new DeviceHistory
         {
             Id = Guid.NewGuid(),
@@ -222,9 +230,9 @@ public class RepairOrderService : IRepairOrderService
         }
         order.UpdatedAt = DateTime.UtcNow;
 
-        _repairOrderRepository.Update(order);
-        await _unitOfWork.SaveChangesAsync();
+        await using var transaction = await _unitOfWork.BeginTransactionAsync();
 
+        _repairOrderRepository.Update(order);
         await _deviceHistoryRepository.AddAsync(new DeviceHistory
         {
             Id = Guid.NewGuid(),
@@ -237,6 +245,7 @@ public class RepairOrderService : IRepairOrderService
             CreatedAt = DateTime.UtcNow
         });
         await _unitOfWork.SaveChangesAsync();
+        await transaction.CommitAsync();
 
         order.AssignedToUser = technician;
         return ToDto(order);
@@ -291,34 +300,27 @@ public class RepairOrderService : IRepairOrderService
 
         await using var transaction = await _unitOfWork.BeginTransactionAsync();
 
-        if (request.Status is RepairStatus.Completed or RepairStatus.Closed)
+        if (order.Incident != null && order.Incident.Status != IncidentStatus.Resolved &&
+            request.Status is RepairStatus.Completed or RepairStatus.Closed)
         {
-            if (order.Incident != null && order.Incident.Status != IncidentStatus.Resolved)
-            {
-                order.Incident.Status = IncidentStatus.Resolved;
-                order.Incident.ResolvedAt = DateTime.UtcNow;
-                order.Incident.ResolutionNotes = order.ResolutionNotes;
-                order.Incident.UpdatedAt = DateTime.UtcNow;
-                _incidentRepository.Update(order.Incident);
-            }
-
-            var hasOtherActiveRepairs = await _repairOrderRepository.HasActiveRepairForDeviceAsync(order.DeviceId, order.Id);
-            if (!hasOtherActiveRepairs)
-            {
-                await _deviceService.RecalculateStatusAsync(order.DeviceId);
-            }
-        }
-        else if (request.Status == RepairStatus.Cancelled)
-        {
-            var hasOtherActiveRepairs = await _repairOrderRepository.HasActiveRepairForDeviceAsync(order.DeviceId, order.Id);
-            if (!hasOtherActiveRepairs)
-            {
-                await _deviceService.RecalculateStatusAsync(order.DeviceId);
-            }
+            order.Incident.Status = IncidentStatus.Resolved;
+            order.Incident.ResolvedAt = DateTime.UtcNow;
+            order.Incident.ResolutionNotes = order.ResolutionNotes;
+            order.Incident.UpdatedAt = DateTime.UtcNow;
+            _incidentRepository.Update(order.Incident);
         }
 
         _repairOrderRepository.Update(order);
         await _unitOfWork.SaveChangesAsync();
+
+        if (request.Status is RepairStatus.Completed or RepairStatus.Closed or RepairStatus.Cancelled)
+        {
+            var hasOtherActiveRepairs = await _repairOrderRepository.HasActiveRepairForDeviceAsync(order.DeviceId, order.Id);
+            if (!hasOtherActiveRepairs)
+            {
+                await _deviceService.RecalculateStatusAsync(order.DeviceId);
+            }
+        }
 
         var updatedDevice = await _deviceRepository.GetByIdAsync(order.DeviceId)
             ?? throw new NotFoundException("Thiết bị không tồn tại.");

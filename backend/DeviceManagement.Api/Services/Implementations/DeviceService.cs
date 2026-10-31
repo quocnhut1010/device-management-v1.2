@@ -15,6 +15,7 @@ public class DeviceService : IDeviceService
     private readonly IDeviceModelRepository _deviceModelRepository;
     private readonly IDeviceAssignmentRepository _deviceAssignmentRepository;
     private readonly IDeviceHistoryRepository _deviceHistoryRepository;
+    private readonly IRepairOrderRepository _repairOrderRepository;
     private readonly IUnitOfWork _unitOfWork;
     private readonly ICurrentUserService _currentUserService;
 
@@ -24,6 +25,7 @@ public class DeviceService : IDeviceService
         IDeviceModelRepository deviceModelRepository,
         IDeviceAssignmentRepository deviceAssignmentRepository,
         IDeviceHistoryRepository deviceHistoryRepository,
+        IRepairOrderRepository repairOrderRepository,
         IUnitOfWork unitOfWork,
         ICurrentUserService currentUserService)
     {
@@ -32,6 +34,7 @@ public class DeviceService : IDeviceService
         _deviceModelRepository = deviceModelRepository;
         _deviceAssignmentRepository = deviceAssignmentRepository;
         _deviceHistoryRepository = deviceHistoryRepository;
+        _repairOrderRepository = repairOrderRepository;
         _unitOfWork = unitOfWork;
         _currentUserService = currentUserService;
     }
@@ -107,19 +110,17 @@ public class DeviceService : IDeviceService
             }
         }
 
-        var categoryName = deviceType?.Name ?? request.Category;
-        var modelName = deviceModel?.Name ?? request.Model;
-
         var device = new Device
         {
             Id = Guid.NewGuid(),
             Code = request.Code,
             Name = request.Name,
             SerialNumber = request.SerialNumber,
+            Category = deviceType != null ? deviceType.Name : request.Category,
+            Model = deviceModel != null ? deviceModel.Name : request.Model,
             DeviceTypeId = deviceType?.Id,
             DeviceModelId = deviceModel?.Id,
-            Category = categoryName,
-            Model = modelName,
+            Status = DeviceStatus.Available,
             PurchasedDate = request.PurchasedDate,
             CreatedAt = DateTime.UtcNow
         };
@@ -134,8 +135,8 @@ public class DeviceService : IDeviceService
             _currentUserService.GetUserId(),
             "DeviceCreated",
             null,
-            DeviceStatus.Available,
-            $"Thiết bị '{device.Name}' ({device.Code}) được khởi tạo trên hệ thống.");
+            device.Status,
+            $"Tạo mới thiết bị '{device.Code}' - {device.Name}. Trạng thái ban đầu: Sẵn sàng sử dụng.");
 
         await transaction.CommitAsync();
 
@@ -260,16 +261,21 @@ public class DeviceService : IDeviceService
         var oldStatus = device.Status;
         device.Status = nextStatus;
         device.UpdatedAt = DateTime.UtcNow;
-        _repository.Update(device);
-        await _unitOfWork.SaveChangesAsync();
 
-        await WriteHistoryAsync(
-            device.Id,
-            _currentUserService.GetUserId(),
-            "StatusRecalculated",
-            oldStatus,
-            nextStatus,
-            $"Trạng thái thiết bị tự động cập nhật từ {oldStatus} sang {nextStatus}.");
+        _repository.Update(device);
+        await _deviceHistoryRepository.AddAsync(new DeviceHistory
+        {
+            Id = Guid.NewGuid(),
+            DeviceId = device.Id,
+            Action = "StatusRecalculated",
+            OldStatus = oldStatus,
+            NewStatus = nextStatus,
+            Description = $"Trạng thái thiết bị tự động cập nhật từ {oldStatus} sang {nextStatus}.",
+            CreatedByUserId = _currentUserService.GetUserId(),
+            CreatedAt = DateTime.UtcNow
+        });
+
+        await _unitOfWork.SaveChangesAsync();
     }
 
     public async Task<PagedResult<DeviceHistoryDto>> GetHistoryAsync(Guid deviceId, int page, int pageSize)
@@ -346,6 +352,17 @@ public class DeviceService : IDeviceService
 
     private async Task<DeviceStatus> DetermineStatusAsync(Guid deviceId, DeviceStatus currentStatus)
     {
+        if (currentStatus == DeviceStatus.Disposed)
+        {
+            return DeviceStatus.Disposed;
+        }
+
+        var hasActiveRepair = await _repairOrderRepository.HasActiveRepairForDeviceAsync(deviceId);
+        if (hasActiveRepair)
+        {
+            return DeviceStatus.UnderRepair;
+        }
+
         var assignments = await _deviceAssignmentRepository.GetByDeviceIdAsync(deviceId);
 
         if (assignments.Any(x => x.Status == DeviceAssignmentStatus.Accepted))

@@ -104,9 +104,9 @@ public class IncidentService : IIncidentService
             CreatedAt = DateTime.UtcNow
         };
 
-        await _incidentRepository.AddAsync(incident);
-        await _unitOfWork.SaveChangesAsync();
+        await using var transaction = await _unitOfWork.BeginTransactionAsync();
 
+        await _incidentRepository.AddAsync(incident);
         await _deviceHistoryRepository.AddAsync(new DeviceHistory
         {
             Id = Guid.NewGuid(),
@@ -119,6 +119,7 @@ public class IncidentService : IIncidentService
             CreatedAt = DateTime.UtcNow
         });
         await _unitOfWork.SaveChangesAsync();
+        await transaction.CommitAsync();
 
         incident.Device = device;
         return ToDto(incident);
@@ -160,9 +161,9 @@ public class IncidentService : IIncidentService
 
         incident.UpdatedAt = DateTime.UtcNow;
 
-        _incidentRepository.Update(incident);
-        await _unitOfWork.SaveChangesAsync();
+        await using var transaction = await _unitOfWork.BeginTransactionAsync();
 
+        _incidentRepository.Update(incident);
         await _deviceHistoryRepository.AddAsync(new DeviceHistory
         {
             Id = Guid.NewGuid(),
@@ -175,6 +176,7 @@ public class IncidentService : IIncidentService
             CreatedAt = DateTime.UtcNow
         });
         await _unitOfWork.SaveChangesAsync();
+        await transaction.CommitAsync();
 
         return ToDto(incident);
     }

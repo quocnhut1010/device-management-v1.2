@@ -18,5 +18,9 @@ public class UpdateUserRequestValidator : AbstractValidator<UpdateUserRequest>
 
         RuleFor(x => x.PhoneNumber)
             .MaximumLength(30);
+
+        RuleFor(x => x.Role)
+            .Must(r => string.IsNullOrWhiteSpace(r) || r is "Admin" or "Employee" or "Technician")
+            .WithMessage("Vai trò người dùng phải là Admin, Employee hoặc Technician.");
     }
 }
