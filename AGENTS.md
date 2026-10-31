@@ -20,7 +20,14 @@
     * `Employee`: Nhân viên thông thường (xem thiết bị, tiếp nhận / từ chối / hoàn trả thiết bị được bàn giao).
 
 ---
-
+Backend Layering Rules
+- Keep the backend in the existing single ASP.NET Core API project. Do not introduce multi-project Clean Architecture, CQRS, MediatR, or generic abstractions unless the user explicitly requests them.
+- Preserve the request flow: Controller -> Service -> Repository -> DbContext.
+- Controllers handle HTTP binding, authorization attributes, and HTTP responses. They must not access DeviceManagementDbContext or expose EF entities directly through the API.
+- Services own business rules, workflow orchestration, and decisions about the caller's allowed data scope. They must not access DeviceManagementDbContext directly.
+- Repositories own EF Core queries and entity add/update/delete operations. They must not depend on API request/response DTOs or decide authorization policies such as whether a caller is an Admin. Pass primitive filter values or a persistence-layer query type; resolve role and ownership rules in the Service first.
+- Use IUnitOfWork for SaveChangesAsync and transactions. Repositories must not expose or call SaveChangesAsync. Repositories and IUnitOfWork must use the same request-scoped DeviceManagementDbContext so multi-repository work remains in one transaction.
+- Keep API DTOs as the API contract and map entities to DTOs in the Service layer. Preserve existing routes and behavior during organization-only refactors.
 ## 2. Mandatory Task Execution Workflow
 
 Mọi task phát triển, sửa lỗi hoặc tính năng mới **bắt buộc** phải tuân thủ nghiêm ngặt quy trình 8 bước:

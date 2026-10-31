@@ -9,6 +9,8 @@ import { AssignmentsPage } from './pages/AssignmentsPage'
 import { DeviceHistoryPage } from './pages/DeviceHistoryPage'
 import { DepartmentsPage } from './pages/DepartmentsPage'
 import { DeviceCatalogPage } from './pages/DeviceCatalogPage'
+import { IncidentsPage } from './pages/IncidentsPage'
+import { RepairsPage } from './pages/RepairsPage'
 import { PlaceholderPage } from './pages/PlaceholderPage'
 
 function ProtectedRoute() {
@@ -45,25 +47,8 @@ export function AppRouter() {
           <Route path="/users" element={<UsersPage />} />
           <Route path="/departments" element={<DepartmentsPage />} />
 
-          {/* Các module ứng viên tương lai theo Roadmap */}
-          <Route
-            path="/incidents"
-            element={
-              <PlaceholderPage
-                title="Báo cáo sự cố"
-                moduleName="Quản lý sự cố kỹ thuật (Incidents)"
-              />
-            }
-          />
-          <Route
-            path="/repairs"
-            element={
-              <PlaceholderPage
-                title="Lệnh sửa chữa"
-                moduleName="Quản lý sửa chữa & Bảo trì (Repairs)"
-              />
-            }
-          />
+          <Route path="/incidents" element={<IncidentsPage />} />
+          <Route path="/repairs" element={<RepairsPage />} />
         </Route>
       </Route>
 

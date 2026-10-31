@@ -73,6 +73,12 @@ namespace DeviceManagement.Api.Migrations
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
 
+                    b.Property<Guid?>("DeviceModelId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("DeviceTypeId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<string>("Model")
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)");
@@ -100,6 +106,10 @@ namespace DeviceManagement.Api.Migrations
 
                     b.HasIndex("Code")
                         .IsUnique();
+
+                    b.HasIndex("DeviceModelId");
+
+                    b.HasIndex("DeviceTypeId");
 
                     b.HasIndex("SerialNumber")
                         .IsUnique();
@@ -204,6 +214,210 @@ namespace DeviceManagement.Api.Migrations
                     b.ToTable("DeviceHistories");
                 });
 
+            modelBuilder.Entity("DeviceManagement.Api.Models.Entities.DeviceModel", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("DeviceTypeId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("Manufacturer")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("Specifications")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Code")
+                        .IsUnique();
+
+                    b.HasIndex("DeviceTypeId");
+
+                    b.ToTable("DeviceModels");
+                });
+
+            modelBuilder.Entity("DeviceManagement.Api.Models.Entities.DeviceType", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Code")
+                        .IsUnique();
+
+                    b.ToTable("DeviceTypes");
+                });
+
+            modelBuilder.Entity("DeviceManagement.Api.Models.Entities.Incident", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<Guid>("DeviceId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("ReportedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("ReportedByUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("ResolutionNotes")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<DateTime?>("ResolvedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("Severity")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("DeviceId");
+
+                    b.HasIndex("ReportedByUserId");
+
+                    b.HasIndex("Status");
+
+                    b.ToTable("Incidents");
+                });
+
+            modelBuilder.Entity("DeviceManagement.Api.Models.Entities.RepairOrder", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<decimal?>("ActualCost")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<Guid?>("AssignedToUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<DateTime?>("CompletedDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<Guid>("DeviceId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<decimal?>("EstimatedCost")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<Guid?>("IncidentId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("Priority")
+                        .HasColumnType("int");
+
+                    b.Property<string>("ResolutionNotes")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<DateTime?>("StartDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AssignedToUserId");
+
+                    b.HasIndex("Code")
+                        .IsUnique();
+
+                    b.HasIndex("DeviceId");
+
+                    b.HasIndex("IncidentId");
+
+                    b.HasIndex("Status");
+
+                    b.ToTable("RepairOrders");
+                });
+
             modelBuilder.Entity("DeviceManagement.Api.Models.Entities.User", b =>
                 {
                     b.Property<Guid>("Id")
@@ -264,6 +478,23 @@ namespace DeviceManagement.Api.Migrations
                     b.ToTable("Users");
                 });
 
+            modelBuilder.Entity("DeviceManagement.Api.Models.Entities.Device", b =>
+                {
+                    b.HasOne("DeviceManagement.Api.Models.Entities.DeviceModel", "DeviceModel")
+                        .WithMany("Devices")
+                        .HasForeignKey("DeviceModelId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("DeviceManagement.Api.Models.Entities.DeviceType", "DeviceType")
+                        .WithMany("Devices")
+                        .HasForeignKey("DeviceTypeId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("DeviceModel");
+
+                    b.Navigation("DeviceType");
+                });
+
             modelBuilder.Entity("DeviceManagement.Api.Models.Entities.DeviceAssignment", b =>
                 {
                     b.HasOne("DeviceManagement.Api.Models.Entities.User", "AssignedByUser")
@@ -309,6 +540,61 @@ namespace DeviceManagement.Api.Migrations
                     b.Navigation("Device");
                 });
 
+            modelBuilder.Entity("DeviceManagement.Api.Models.Entities.DeviceModel", b =>
+                {
+                    b.HasOne("DeviceManagement.Api.Models.Entities.DeviceType", "DeviceType")
+                        .WithMany("DeviceModels")
+                        .HasForeignKey("DeviceTypeId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("DeviceType");
+                });
+
+            modelBuilder.Entity("DeviceManagement.Api.Models.Entities.Incident", b =>
+                {
+                    b.HasOne("DeviceManagement.Api.Models.Entities.Device", "Device")
+                        .WithMany("Incidents")
+                        .HasForeignKey("DeviceId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("DeviceManagement.Api.Models.Entities.User", "ReportedByUser")
+                        .WithMany()
+                        .HasForeignKey("ReportedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Device");
+
+                    b.Navigation("ReportedByUser");
+                });
+
+            modelBuilder.Entity("DeviceManagement.Api.Models.Entities.RepairOrder", b =>
+                {
+                    b.HasOne("DeviceManagement.Api.Models.Entities.User", "AssignedToUser")
+                        .WithMany()
+                        .HasForeignKey("AssignedToUserId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("DeviceManagement.Api.Models.Entities.Device", "Device")
+                        .WithMany("RepairOrders")
+                        .HasForeignKey("DeviceId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("DeviceManagement.Api.Models.Entities.Incident", "Incident")
+                        .WithMany("RepairOrders")
+                        .HasForeignKey("IncidentId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("AssignedToUser");
+
+                    b.Navigation("Device");
+
+                    b.Navigation("Incident");
+                });
+
             modelBuilder.Entity("DeviceManagement.Api.Models.Entities.User", b =>
                 {
                     b.HasOne("DeviceManagement.Api.Models.Entities.Department", "Department")
@@ -329,6 +615,27 @@ namespace DeviceManagement.Api.Migrations
                     b.Navigation("Assignments");
 
                     b.Navigation("Histories");
+
+                    b.Navigation("Incidents");
+
+                    b.Navigation("RepairOrders");
+                });
+
+            modelBuilder.Entity("DeviceManagement.Api.Models.Entities.DeviceModel", b =>
+                {
+                    b.Navigation("Devices");
+                });
+
+            modelBuilder.Entity("DeviceManagement.Api.Models.Entities.DeviceType", b =>
+                {
+                    b.Navigation("DeviceModels");
+
+                    b.Navigation("Devices");
+                });
+
+            modelBuilder.Entity("DeviceManagement.Api.Models.Entities.Incident", b =>
+                {
+                    b.Navigation("RepairOrders");
                 });
 
             modelBuilder.Entity("DeviceManagement.Api.Models.Entities.User", b =>

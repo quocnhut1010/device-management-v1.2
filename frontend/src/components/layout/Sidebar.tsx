@@ -15,7 +15,10 @@ import { useAuth } from '../../contexts/AuthContext'
 
 export function Sidebar() {
   const { profile } = useAuth()
-  const isAdmin = profile?.role?.toLowerCase() === 'admin'
+  const role = profile?.role?.toLowerCase()
+  const isAdmin = role === 'admin'
+  const isTechnician = role === 'technician'
+  const canAccessRepairs = isAdmin || isTechnician
 
   return (
     <aside className="sidebar">
@@ -124,21 +127,21 @@ export function Sidebar() {
                 <AlertCircle size={18} />
                 <span>Báo cáo sự cố</span>
               </div>
-              <span className="badge-dev">Đang phát triển</span>
             </NavLink>
 
-            <NavLink
-              to="/repairs"
-              className={({ isActive }) =>
-                `sidebar-item ${isActive ? 'active' : ''}`
-              }
-            >
-              <div className="sidebar-item-left">
-                <Wrench size={18} />
-                <span>Lệnh sửa chữa</span>
-              </div>
-              <span className="badge-dev">Đang phát triển</span>
-            </NavLink>
+            {canAccessRepairs && (
+              <NavLink
+                to="/repairs"
+                className={({ isActive }) =>
+                  `sidebar-item ${isActive ? 'active' : ''}`
+                }
+              >
+                <div className="sidebar-item-left">
+                  <Wrench size={18} />
+                  <span>Lệnh sửa chữa</span>
+                </div>
+              </NavLink>
+            )}
           </div>
         </div>
 

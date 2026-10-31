@@ -32,6 +32,12 @@ export type DeviceStatus = 1 | 2 | 3 | 4 | 5
 export type UserStatus = 1 | 2
 export type AssignmentStatus = 1 | 2 | 3 | 4 | 5
 
+export type IncidentSeverity = 1 | 2 | 3 | 4
+export type IncidentStatus = 1 | 2 | 3 | 4 | 5 | 6
+
+export type RepairStatus = 1 | 2 | 3 | 4 | 5 | 6 | 7
+export type RepairPriority = 1 | 2 | 3 | 4
+
 export interface Department {
   id: string
   code: string
@@ -208,4 +214,96 @@ export type DashboardStats = {
   totalUsers: number
   pendingAssignments: number
   myAssignments: number
+}
+
+export interface Incident {
+  id: string
+  deviceId: string
+  deviceCode?: string | null
+  deviceName?: string | null
+  reportedByUserId: string
+  reportedByUserName?: string | null
+  title: string
+  description: string
+  severity: IncidentSeverity
+  status: IncidentStatus
+  resolutionNotes?: string | null
+  reportedAt: string
+  resolvedAt?: string | null
+  createdAt: string
+  hasRepairOrder: boolean
+}
+
+export interface CreateIncidentInput {
+  deviceId: string
+  title: string
+  description: string
+  severity?: IncidentSeverity
+}
+
+export interface UpdateIncidentStatusInput {
+  status: IncidentStatus
+  severity?: IncidentSeverity | null
+  resolutionNotes?: string | null
+}
+
+export interface IncidentFilter {
+  keyword?: string
+  deviceId?: string
+  reportedByUserId?: string
+  status?: number
+  severity?: number
+  page: number
+  pageSize: number
+}
+
+export interface RepairOrder {
+  id: string
+  code: string
+  incidentId?: string | null
+  incidentTitle?: string | null
+  deviceId: string
+  deviceCode?: string | null
+  deviceName?: string | null
+  assignedToUserId?: string | null
+  assignedToUserName?: string | null
+  status: RepairStatus
+  priority: RepairPriority
+  estimatedCost?: number | null
+  actualCost?: number | null
+  description: string
+  resolutionNotes?: string | null
+  startDate?: string | null
+  completedDate?: string | null
+  createdAt: string
+}
+
+export interface CreateRepairOrderInput {
+  code?: string
+  incidentId?: string | null
+  deviceId: string
+  assignedToUserId?: string | null
+  priority?: RepairPriority
+  estimatedCost?: number | null
+  description: string
+}
+
+export interface AssignRepairOrderInput {
+  assignedToUserId: string
+}
+
+export interface UpdateRepairOrderStatusInput {
+  status: RepairStatus
+  actualCost?: number | null
+  resolutionNotes?: string | null
+}
+
+export interface RepairOrderFilter {
+  keyword?: string
+  deviceId?: string
+  assignedToUserId?: string
+  status?: number
+  priority?: number
+  page: number
+  pageSize: number
 }

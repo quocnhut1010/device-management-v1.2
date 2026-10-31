@@ -18,6 +18,15 @@ import type {
   PagedResult,
   User,
   UserFilter,
+  Incident,
+  IncidentFilter,
+  CreateIncidentInput,
+  UpdateIncidentStatusInput,
+  RepairOrder,
+  RepairOrderFilter,
+  CreateRepairOrderInput,
+  AssignRepairOrderInput,
+  UpdateRepairOrderStatusInput,
 } from '../types'
 import api from './api'
 
@@ -242,5 +251,56 @@ export async function returnAssignment(id: string) {
 
 export async function revokeAssignment(id: string) {
   const response = await api.post<ApiResponse<Assignment>>(`/device-assignments/${id}/revoke`)
+  return response.data.data
+}
+
+// ----------------- INCIDENTS -----------------
+export async function getIncidents(filter: IncidentFilter): Promise<PagedResult<Incident>> {
+  const response = await api.get<ApiResponse<PagedResult<Incident>>>('/incidents', {
+    params: compactQuery(filter as unknown as Record<string, string | number | boolean | undefined>),
+  })
+  return response.data.data
+}
+
+export async function getIncidentById(id: string): Promise<Incident> {
+  const response = await api.get<ApiResponse<Incident>>(`/incidents/${id}`)
+  return response.data.data
+}
+
+export async function createIncident(payload: CreateIncidentInput): Promise<Incident> {
+  const response = await api.post<ApiResponse<Incident>>('/incidents', payload)
+  return response.data.data
+}
+
+export async function updateIncidentStatus(id: string, payload: UpdateIncidentStatusInput): Promise<Incident> {
+  const response = await api.put<ApiResponse<Incident>>(`/incidents/${id}/status`, payload)
+  return response.data.data
+}
+
+// ----------------- REPAIR ORDERS -----------------
+export async function getRepairOrders(filter: RepairOrderFilter): Promise<PagedResult<RepairOrder>> {
+  const response = await api.get<ApiResponse<PagedResult<RepairOrder>>>('/repair-orders', {
+    params: compactQuery(filter as unknown as Record<string, string | number | boolean | undefined>),
+  })
+  return response.data.data
+}
+
+export async function getRepairOrderById(id: string): Promise<RepairOrder> {
+  const response = await api.get<ApiResponse<RepairOrder>>(`/repair-orders/${id}`)
+  return response.data.data
+}
+
+export async function createRepairOrder(payload: CreateRepairOrderInput): Promise<RepairOrder> {
+  const response = await api.post<ApiResponse<RepairOrder>>('/repair-orders', payload)
+  return response.data.data
+}
+
+export async function assignRepairOrder(id: string, payload: AssignRepairOrderInput): Promise<RepairOrder> {
+  const response = await api.post<ApiResponse<RepairOrder>>(`/repair-orders/${id}/assign`, payload)
+  return response.data.data
+}
+
+export async function updateRepairOrderStatus(id: string, payload: UpdateRepairOrderStatusInput): Promise<RepairOrder> {
+  const response = await api.put<ApiResponse<RepairOrder>>(`/repair-orders/${id}/status`, payload)
   return response.data.data
 }

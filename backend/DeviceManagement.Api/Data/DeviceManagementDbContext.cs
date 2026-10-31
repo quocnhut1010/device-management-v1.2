@@ -16,6 +16,8 @@ public class DeviceManagementDbContext : DbContext
     public DbSet<Device> Devices => Set<Device>();
     public DbSet<DeviceAssignment> DeviceAssignments => Set<DeviceAssignment>();
     public DbSet<DeviceHistory> DeviceHistories => Set<DeviceHistory>();
+    public DbSet<Incident> Incidents => Set<Incident>();
+    public DbSet<RepairOrder> RepairOrders => Set<RepairOrder>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

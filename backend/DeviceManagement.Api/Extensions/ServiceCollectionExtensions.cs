@@ -16,6 +16,8 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IDeviceTypeRepository, DeviceTypeRepository>();
         services.AddScoped<IDeviceModelRepository, DeviceModelRepository>();
         services.AddScoped<IDeviceHistoryRepository, DeviceHistoryRepository>();
+        services.AddScoped<IIncidentRepository, IncidentRepository>();
+        services.AddScoped<IRepairOrderRepository, RepairOrderRepository>();
         services.AddScoped<IUnitOfWork, UnitOfWork>();
 
         services.AddScoped<IDeviceService, DeviceService>();
@@ -24,6 +26,8 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IDepartmentService, DepartmentService>();
         services.AddScoped<IDeviceTypeService, DeviceTypeService>();
         services.AddScoped<IDeviceModelService, DeviceModelService>();
+        services.AddScoped<IIncidentService, IncidentService>();
+        services.AddScoped<IRepairOrderService, RepairOrderService>();
         services.AddScoped<IAuthService, AuthService>();
         services.AddScoped<ICurrentUserService, CurrentUserService>();
         services.AddScoped<IDashboardService, DashboardService>();

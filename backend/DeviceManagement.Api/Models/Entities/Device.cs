@@ -21,4 +21,6 @@ public class Device
 
     public ICollection<DeviceAssignment> Assignments { get; set; } = new List<DeviceAssignment>();
     public ICollection<DeviceHistory> Histories { get; set; } = new List<DeviceHistory>();
+    public ICollection<Incident> Incidents { get; set; } = new List<Incident>();
+    public ICollection<RepairOrder> RepairOrders { get; set; } = new List<RepairOrder>();
 }
