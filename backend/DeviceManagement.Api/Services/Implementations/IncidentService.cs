@@ -114,7 +114,7 @@ public class IncidentService : IIncidentService
             Action = "IncidentReported",
             OldStatus = device.Status,
             NewStatus = device.Status,
-            Description = $"Sự cố '{incident.Title}' (Mức độ: {incident.Severity}) được báo cáo trên hệ thống.",
+            Description = $"Sự cố '{incident.Title}' (Mức độ: {FormatSeverityVi(incident.Severity)}) được báo cáo trên hệ thống.",
             CreatedByUserId = currentUserId,
             CreatedAt = DateTime.UtcNow
         });
@@ -171,7 +171,7 @@ public class IncidentService : IIncidentService
             Action = "IncidentStatusUpdated",
             OldStatus = incident.Device.Status,
             NewStatus = incident.Device.Status,
-            Description = $"Sự cố '{incident.Title}' được cập nhật trạng thái sang {incident.Status}.",
+            Description = $"Sự cố '{incident.Title}' được cập nhật trạng thái sang '{FormatIncidentStatusVi(incident.Status)}'.",
             CreatedByUserId = currentUserId,
             CreatedAt = DateTime.UtcNow
         });
@@ -181,12 +181,32 @@ public class IncidentService : IIncidentService
         return ToDto(incident);
     }
 
+    private static string FormatSeverityVi(IncidentSeverity severity) => severity switch
+    {
+        IncidentSeverity.Low => "Thấp",
+        IncidentSeverity.Medium => "Trung bình",
+        IncidentSeverity.High => "Cao",
+        IncidentSeverity.Critical => "Khẩn cấp",
+        _ => severity.ToString()
+    };
+
+    private static string FormatIncidentStatusVi(IncidentStatus status) => status switch
+    {
+        IncidentStatus.Reported => "Mới báo cáo",
+        IncidentStatus.InReview => "Đang xem xét",
+        IncidentStatus.Approved => "Đã duyệt",
+        IncidentStatus.Rejected => "Từ chối",
+        IncidentStatus.Resolved => "Đã xử lý",
+        IncidentStatus.Closed => "Đã đóng",
+        _ => status.ToString()
+    };
+
     private static void EnsureValidTransition(IncidentStatus current, IncidentStatus next)
     {
         var isValid = current switch
         {
-            IncidentStatus.Reported => next is IncidentStatus.InReview or IncidentStatus.Approved or IncidentStatus.Rejected,
-            IncidentStatus.InReview => next is IncidentStatus.Approved or IncidentStatus.Rejected,
+            IncidentStatus.Reported => next is IncidentStatus.InReview or IncidentStatus.Approved or IncidentStatus.Rejected or IncidentStatus.Closed,
+            IncidentStatus.InReview => next is IncidentStatus.Approved or IncidentStatus.Rejected or IncidentStatus.Closed,
             IncidentStatus.Approved => next is IncidentStatus.Resolved or IncidentStatus.Closed,
             IncidentStatus.Rejected => next is IncidentStatus.Closed,
             IncidentStatus.Resolved => next is IncidentStatus.Closed,
@@ -195,7 +215,7 @@ public class IncidentService : IIncidentService
 
         if (!isValid)
         {
-            throw new BusinessException($"Không thể chuyển trạng thái sự cố từ {current} sang {next}.");
+            throw new BusinessException($"Không thể chuyển trạng thái sự cố từ '{FormatIncidentStatusVi(current)}' sang '{FormatIncidentStatusVi(next)}'.");
         }
     }
 

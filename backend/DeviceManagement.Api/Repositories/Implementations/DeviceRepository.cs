@@ -77,6 +77,12 @@ public class DeviceRepository : IDeviceRepository
     public Task<bool> HasAssignmentsAsync(Guid id) =>
         _context.DeviceAssignments.AnyAsync(x => x.DeviceId == id);
 
+    public Task<bool> HasIncidentsAsync(Guid id) =>
+        _context.Incidents.AnyAsync(x => x.DeviceId == id);
+
+    public Task<bool> HasRepairOrdersAsync(Guid id) =>
+        _context.RepairOrders.AnyAsync(x => x.DeviceId == id);
+
     public Task<int> GetCountAsync() =>
         _context.Devices.CountAsync();
 

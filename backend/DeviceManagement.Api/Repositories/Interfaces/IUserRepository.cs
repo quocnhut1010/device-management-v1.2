@@ -11,8 +11,11 @@ public interface IUserRepository
     Task<User?> GetByIdAsync(Guid id);
     Task<User?> GetByEmailAsync(string email);
     Task<bool> ExistsByCodeAsync(string code);
-    Task<bool> ExistsByEmailAsync(string email);
+    Task<bool> ExistsByEmailAsync(string email, Guid? excludeUserId = null);
     Task<bool> HasAssignmentsAsync(Guid id);
+    Task<bool> HasIncidentsAsync(Guid id);
+    Task<bool> HasRepairOrdersAsync(Guid id);
+    Task<bool> HasDeviceHistoriesAsync(Guid id);
     Task<int> GetCountAsync();
     Task AddAsync(User user);
     void Update(User user);

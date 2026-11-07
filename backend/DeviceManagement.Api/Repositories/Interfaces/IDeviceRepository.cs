@@ -12,6 +12,8 @@ public interface IDeviceRepository
     Task<bool> ExistsByCodeAsync(string code, Guid? excludeId = null);
     Task<bool> ExistsBySerialNumberAsync(string serialNumber, Guid? excludeId = null);
     Task<bool> HasAssignmentsAsync(Guid id);
+    Task<bool> HasIncidentsAsync(Guid id);
+    Task<bool> HasRepairOrdersAsync(Guid id);
     Task<int> GetCountAsync();
     Task<int> GetCountByStatusAsync(DeviceStatus status);
     Task AddAsync(Device device);

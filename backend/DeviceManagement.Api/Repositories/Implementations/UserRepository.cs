@@ -73,11 +73,20 @@ public class UserRepository : IUserRepository
     public Task<bool> ExistsByCodeAsync(string code) =>
         _context.Users.AnyAsync(x => x.Code == code);
 
-    public Task<bool> ExistsByEmailAsync(string email) =>
-        _context.Users.AnyAsync(x => x.Email == email);
+    public Task<bool> ExistsByEmailAsync(string email, Guid? excludeUserId = null) =>
+        _context.Users.AnyAsync(x => x.Email == email && (!excludeUserId.HasValue || x.Id != excludeUserId.Value));
 
     public Task<bool> HasAssignmentsAsync(Guid id) =>
         _context.DeviceAssignments.AnyAsync(x => x.UserId == id || x.AssignedByUserId == id);
+
+    public Task<bool> HasIncidentsAsync(Guid id) =>
+        _context.Incidents.AnyAsync(x => x.ReportedByUserId == id);
+
+    public Task<bool> HasRepairOrdersAsync(Guid id) =>
+        _context.RepairOrders.AnyAsync(x => x.AssignedToUserId == id);
+
+    public Task<bool> HasDeviceHistoriesAsync(Guid id) =>
+        _context.DeviceHistories.AnyAsync(x => x.CreatedByUserId == id);
 
     public Task<int> GetCountAsync() =>
         _context.Users.CountAsync();

@@ -33,6 +33,85 @@ const historyActionConfig: Record<string, { label: string; className: string }> 
   AssignmentReturned: { label: 'Hoàn trả thiết bị', className: 'badge badge-purple' },
   AssignmentRevoked: { label: 'Thu hồi bàn giao', className: 'badge badge-gray' },
   StatusRecalculated: { label: 'Cập nhật trạng thái', className: 'badge badge-blue' },
+  IncidentReported: { label: 'Báo cáo sự cố', className: 'badge badge-amber' },
+  IncidentStatusUpdated: { label: 'Tiến độ sự cố', className: 'badge badge-blue' },
+  RepairOrderCreated: { label: 'Tạo lệnh sửa chữa', className: 'badge badge-purple' },
+  RepairOrderAssigned: { label: 'Phân công kỹ thuật', className: 'badge badge-blue' },
+  RepairStatusUpdated: { label: 'Tiến độ sửa chữa', className: 'badge badge-purple' },
+}
+
+export function formatHistoryDescription(desc?: string | null): string {
+  if (!desc) return '-'
+
+  let formatted = desc
+
+  // Legacy assignment descriptions
+  formatted = formatted.replace(
+    /^User\s+[a-fA-F0-9-]+\s+accepted assignment\./i,
+    'Nhân viên đã tiếp nhận thiết bị.'
+  )
+  formatted = formatted.replace(
+    /^User\s+[a-fA-F0-9-]+\s+rejected assignment\./i,
+    'Nhân viên từ chối tiếp nhận thiết bị.'
+  )
+  formatted = formatted.replace(
+    /^User\s+[a-fA-F0-9-]+\s+returned device\./i,
+    'Thiết bị đã được hoàn trả bởi nhân viên.'
+  )
+  formatted = formatted.replace(
+    /^Device assigned to user\s+[a-fA-F0-9-]+\s+and waiting for acceptance\./i,
+    'Thiết bị đã được bàn giao cho nhân viên và đang chờ tiếp nhận.'
+  )
+  formatted = formatted.replace(
+    /^Assignment revoked(?:\s+by user\s+[a-fA-F0-9-]+)?\./i,
+    'Phiếu bàn giao thiết bị đã bị thu hồi.'
+  )
+
+  // Status recalculated legacy patterns
+  formatted = formatted.replace(
+    /^Device status recalculated from\s+(\w+)\s+to\s+(\w+)\.?/i,
+    (_, oldSt, newSt) => {
+      const mapStatus = (s: string) => {
+        switch (s.toLowerCase()) {
+          case 'available':
+            return 'Sẵn sàng sử dụng'
+          case 'pendingassignment':
+            return 'Chờ duyệt bàn giao'
+          case 'inuse':
+            return 'Đang sử dụng'
+          case 'underrepair':
+            return 'Đang sửa chữa'
+          case 'disposed':
+            return 'Đã thanh lý'
+          default:
+            return s
+        }
+      }
+      return `Trạng thái thiết bị tự động cập nhật từ '${mapStatus(oldSt)}' sang '${mapStatus(newSt)}'.`
+    }
+  )
+
+  // Substring enum translations in descriptions
+  formatted = formatted.replace(/\(Mức độ:\s*Low\)/gi, '(Mức độ: Thấp)')
+  formatted = formatted.replace(/\(Mức độ:\s*Medium\)/gi, '(Mức độ: Trung bình)')
+  formatted = formatted.replace(/\(Mức độ:\s*High\)/gi, '(Mức độ: Cao)')
+  formatted = formatted.replace(/\(Mức độ:\s*Critical\)/gi, '(Mức độ: Khẩn cấp)')
+
+  formatted = formatted.replace(/sang InProgress\b/gi, 'sang Đang xử lý')
+  formatted = formatted.replace(/sang Completed\b/gi, 'sang Hoàn thành')
+  formatted = formatted.replace(/sang Cancelled\b/gi, 'sang Đã hủy')
+  formatted = formatted.replace(/sang Closed\b/gi, 'sang Đã đóng')
+  formatted = formatted.replace(/sang Assigned\b/gi, 'sang Đã phân công')
+  formatted = formatted.replace(/sang Reported\b/gi, 'sang Mới báo cáo')
+
+  // Individual device status enums in Vietnamese text
+  formatted = formatted.replace(/\bAvailable\b/g, 'Sẵn sàng sử dụng')
+  formatted = formatted.replace(/\bPendingAssignment\b/g, 'Chờ duyệt bàn giao')
+  formatted = formatted.replace(/\bInUse\b/g, 'Đang sử dụng')
+  formatted = formatted.replace(/\bUnderRepair\b/g, 'Đang sửa chữa')
+  formatted = formatted.replace(/\bDisposed\b/g, 'Đã thanh lý')
+
+  return formatted
 }
 
 export function DeviceHistoryPage() {
@@ -151,11 +230,11 @@ export function DeviceHistoryPage() {
         </div>
 
         <div className="stat-card">
-          <div className="stat-card-title">Tự động Recalculate</div>
+          <div className="stat-card-title">Sự cố & Sửa chữa</div>
           <div className="stat-card-value" style={{ color: '#7c3aed' }}>
-            {historyItems.filter(h => h.action === 'StatusRecalculated').length}
+            {historyItems.filter(h => h.action.startsWith('Incident') || h.action.startsWith('Repair')).length}
           </div>
-          <div className="stat-card-sub">Chuyển trạng thái an toàn</div>
+          <div className="stat-card-sub">Bảo trì và khắc phục</div>
         </div>
       </div>
 
@@ -210,6 +289,11 @@ export function DeviceHistoryPage() {
               <option value="AssignmentRejected">Từ chối nhận thiết bị</option>
               <option value="AssignmentReturned">Hoàn trả thiết bị</option>
               <option value="AssignmentRevoked">Thu hồi bàn giao</option>
+              <option value="IncidentReported">Báo cáo sự cố</option>
+              <option value="IncidentStatusUpdated">Tiến độ sự cố</option>
+              <option value="RepairOrderCreated">Tạo lệnh sửa chữa</option>
+              <option value="RepairOrderAssigned">Phân công kỹ thuật</option>
+              <option value="RepairStatusUpdated">Tiến độ sửa chữa</option>
               <option value="StatusRecalculated">Cập nhật trạng thái</option>
             </select>
           </div>
@@ -231,12 +315,12 @@ export function DeviceHistoryPage() {
             <table className="data-table">
               <thead>
                 <tr>
-                  <th>Thời gian</th>
-                  <th>Thiết bị</th>
-                  <th>Hành động</th>
-                  <th>Chuyển dịch trạng thái</th>
+                  <th style={{ width: '135px', whiteSpace: 'nowrap' }}>Thời gian</th>
+                  <th style={{ width: '170px' }}>Thiết bị</th>
+                  <th style={{ width: '145px', whiteSpace: 'nowrap' }}>Hành động</th>
+                  <th style={{ width: '210px', whiteSpace: 'nowrap' }}>Chuyển dịch trạng thái</th>
                   <th>Mô tả chi tiết</th>
-                  <th>Người thực hiện</th>
+                  <th style={{ width: '135px', whiteSpace: 'nowrap' }}>Người thực hiện</th>
                 </tr>
               </thead>
               <tbody>
@@ -248,52 +332,76 @@ export function DeviceHistoryPage() {
                   const oldBadge = item.oldStatus ? deviceStatusConfig[item.oldStatus] : null
                   const newBadge = item.newStatus ? deviceStatusConfig[item.newStatus] : null
 
+                  const deviceCode = item.deviceName?.includes(' - ')
+                    ? item.deviceName.split(' - ')[0]
+                    : item.deviceName || item.deviceId
+                  const deviceName = item.deviceName?.includes(' - ')
+                    ? item.deviceName.split(' - ').slice(1).join(' - ')
+                    : null
+
                   return (
                     <tr key={item.id}>
                       <td style={{ whiteSpace: 'nowrap', fontSize: '12px', color: 'var(--muted-foreground)' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                          <Clock size={13} />
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                          <Clock size={12} />
                           <span>{new Date(item.createdAt).toLocaleString('vi-VN')}</span>
                         </div>
                       </td>
 
-                      <td style={{ fontWeight: 600 }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                          <Laptop size={15} color="var(--primary)" />
-                          <span>{item.deviceName || item.deviceId}</span>
+                      <td>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <Laptop size={13} color="var(--primary)" />
+                            <span style={{ fontWeight: 600, fontSize: '13px', color: 'var(--primary)' }}>
+                              {deviceCode}
+                            </span>
+                          </div>
+                          {deviceName && (
+                            <span style={{ fontSize: '12px', color: 'var(--muted-foreground)', lineHeight: 1.2 }}>
+                              {deviceName}
+                            </span>
+                          )}
                         </div>
                       </td>
 
-                      <td>
-                        <span className={actionBadge.className}>{actionBadge.label}</span>
+                      <td style={{ whiteSpace: 'nowrap' }}>
+                        <span className={actionBadge.className} style={{ fontSize: '11.5px', padding: '3px 8px' }}>
+                          {actionBadge.label}
+                        </span>
                       </td>
 
-                      <td>
+                      <td style={{ whiteSpace: 'nowrap' }}>
                         {oldBadge && newBadge ? (
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px' }}>
-                            <span className={oldBadge.className}>{oldBadge.text}</span>
-                            <span>&rarr;</span>
-                            <span className={newBadge.className}>{newBadge.text}</span>
+                          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', fontSize: '11px', whiteSpace: 'nowrap' }}>
+                            <span className={oldBadge.className} style={{ fontSize: '11px', padding: '2px 7px' }}>
+                              {oldBadge.text}
+                            </span>
+                            <span style={{ color: 'var(--muted-foreground)', fontSize: '11px' }}>&rarr;</span>
+                            <span className={newBadge.className} style={{ fontSize: '11px', padding: '2px 7px' }}>
+                              {newBadge.text}
+                            </span>
                           </div>
                         ) : newBadge ? (
-                          <span className={newBadge.className}>{newBadge.text}</span>
+                          <span className={newBadge.className} style={{ fontSize: '11px', padding: '2px 7px' }}>
+                            {newBadge.text}
+                          </span>
                         ) : (
                           <span style={{ color: 'var(--muted-foreground)' }}>-</span>
                         )}
                       </td>
 
-                      <td style={{ maxWidth: '320px', fontSize: '13px' }}>
-                        {item.description || '-'}
+                      <td style={{ fontSize: '13px', lineHeight: 1.45 }}>
+                        {formatHistoryDescription(item.description)}
                       </td>
 
                       <td style={{ whiteSpace: 'nowrap', fontSize: '13px' }}>
                         {item.createdByUserName ? (
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                            <UserIcon size={14} color="var(--muted-foreground)" />
-                            <span style={{ fontWeight: 500 }}>{item.createdByUserName}</span>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                            <UserIcon size={13} color="var(--muted-foreground)" />
+                            <span style={{ fontWeight: 500, fontSize: '12.5px' }}>{item.createdByUserName}</span>
                           </div>
                         ) : (
-                          <span style={{ color: 'var(--muted-foreground)' }}>Hệ thống</span>
+                          <span style={{ color: 'var(--muted-foreground)', fontSize: '12.5px' }}>Hệ thống</span>
                         )}
                       </td>
                     </tr>

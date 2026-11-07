@@ -43,7 +43,7 @@ public class UserService : IUserService
     public async Task<UserDetailDto> GetByIdAsync(Guid id)
     {
         var user = await _repository.GetByIdAsync(id)
-            ?? throw new NotFoundException("User not found.");
+            ?? throw new NotFoundException("Không tìm thấy thông tin người dùng.");
 
         return ToDetailDto(user);
     }
@@ -52,12 +52,12 @@ public class UserService : IUserService
     {
         if (await _repository.ExistsByCodeAsync(request.Code))
         {
-            throw new BusinessException("User code already exists.");
+            throw new BusinessException("Mã nhân viên đã tồn tại trong hệ thống. Vui lòng chọn mã khác.");
         }
 
         if (await _repository.ExistsByEmailAsync(request.Email))
         {
-            throw new BusinessException("User email already exists.");
+            throw new BusinessException("Email đã được sử dụng bởi tài khoản khác trong hệ thống. Vui lòng chọn email khác.");
         }
 
         Department? department = null;
@@ -101,7 +101,12 @@ public class UserService : IUserService
     public async Task<UserDto> UpdateAsync(Guid id, UpdateUserRequest request)
     {
         var user = await _repository.GetByIdAsync(id)
-            ?? throw new NotFoundException("User not found.");
+            ?? throw new NotFoundException("Không tìm thấy thông tin người dùng.");
+
+        if (await _repository.ExistsByEmailAsync(request.Email, id))
+        {
+            throw new BusinessException("Email đã được sử dụng bởi tài khoản khác trong hệ thống. Vui lòng chọn email khác.");
+        }
 
         Department? department = null;
         if (request.DepartmentId.HasValue)
@@ -142,11 +147,26 @@ public class UserService : IUserService
     public async Task DeleteAsync(Guid id)
     {
         var user = await _repository.GetByIdAsync(id)
-            ?? throw new NotFoundException("User not found.");
+            ?? throw new NotFoundException("Không tìm thấy thông tin người dùng.");
 
         if (await _repository.HasAssignmentsAsync(id))
         {
-            throw new BusinessException("Cannot delete a user that has assignment history.");
+            throw new BusinessException("Không thể xóa người dùng đã có lịch sử bàn giao thiết bị. Vui lòng chuyển trạng thái tài khoản sang 'Ngưng hoạt động'.");
+        }
+
+        if (await _repository.HasIncidentsAsync(id))
+        {
+            throw new BusinessException("Không thể xóa người dùng đã có lịch sử báo cáo sự cố. Vui lòng chuyển trạng thái tài khoản sang Ngưng hoạt động.");
+        }
+
+        if (await _repository.HasRepairOrdersAsync(id))
+        {
+            throw new BusinessException("Không thể xóa người dùng đã được phân công lệnh sửa chữa. Vui lòng chuyển trạng thái tài khoản sang Ngưng hoạt động.");
+        }
+
+        if (await _repository.HasDeviceHistoriesAsync(id))
+        {
+            throw new BusinessException("Không thể xóa người dùng đã có lịch sử hoạt động thiết bị trong hệ thống. Vui lòng chuyển trạng thái tài khoản sang Ngưng hoạt động.");
         }
 
         _repository.Delete(user);

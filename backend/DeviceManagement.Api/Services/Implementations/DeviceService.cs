@@ -58,7 +58,7 @@ public class DeviceService : IDeviceService
     public async Task<DeviceDetailDto> GetByIdAsync(Guid id)
     {
         var device = await _repository.GetByIdAsync(id)
-            ?? throw new NotFoundException("Device not found.");
+            ?? throw new NotFoundException("Không tìm thấy thông tin thiết bị.");
 
         return ToDetailDto(device);
     }
@@ -67,12 +67,12 @@ public class DeviceService : IDeviceService
     {
         if (await _repository.ExistsByCodeAsync(request.Code))
         {
-            throw new BusinessException("Device code already exists.");
+            throw new BusinessException("Mã thiết bị đã tồn tại trong hệ thống. Vui lòng chọn mã khác.");
         }
 
         if (await _repository.ExistsBySerialNumberAsync(request.SerialNumber))
         {
-            throw new BusinessException("Device serial number already exists.");
+            throw new BusinessException("Số serial của thiết bị đã tồn tại trong hệ thống.");
         }
 
         DeviceType? deviceType = null;
@@ -234,11 +234,21 @@ public class DeviceService : IDeviceService
     public async Task DeleteAsync(Guid id)
     {
         var device = await _repository.GetByIdAsync(id)
-            ?? throw new NotFoundException("Device not found.");
+            ?? throw new NotFoundException("Không tìm thấy thông tin thiết bị.");
 
         if (await _repository.HasAssignmentsAsync(id))
         {
-            throw new BusinessException("Cannot delete a device that has assignment history.");
+            throw new BusinessException("Không thể xóa thiết bị đã có lịch sử bàn giao cấp phát. Vui lòng chuyển trạng thái thiết bị sang 'Đã thanh lý'.");
+        }
+
+        if (await _repository.HasIncidentsAsync(id))
+        {
+            throw new BusinessException("Không thể xóa thiết bị đã phát sinh lịch sử sự cố. Vui lòng chuyển trạng thái sang Đã thanh lý thay vì xóa.");
+        }
+
+        if (await _repository.HasRepairOrdersAsync(id))
+        {
+            throw new BusinessException("Không thể xóa thiết bị đã phát sinh lệnh sửa chữa. Vui lòng chuyển trạng thái sang Đã thanh lý thay vì xóa.");
         }
 
         await _deviceHistoryRepository.DeleteByDeviceIdAsync(id);
@@ -270,7 +280,7 @@ public class DeviceService : IDeviceService
             Action = "StatusRecalculated",
             OldStatus = oldStatus,
             NewStatus = nextStatus,
-            Description = $"Trạng thái thiết bị tự động cập nhật từ {oldStatus} sang {nextStatus}.",
+            Description = $"Trạng thái thiết bị tự động cập nhật từ '{FormatStatusVi(oldStatus)}' sang '{FormatStatusVi(nextStatus)}'.",
             CreatedByUserId = _currentUserService.GetUserId(),
             CreatedAt = DateTime.UtcNow
         });
@@ -400,6 +410,16 @@ public class DeviceService : IDeviceService
 
         await _unitOfWork.SaveChangesAsync();
     }
+
+    private static string FormatStatusVi(DeviceStatus? status) => status switch
+    {
+        DeviceStatus.Available => "Sẵn sàng sử dụng",
+        DeviceStatus.PendingAssignment => "Chờ duyệt bàn giao",
+        DeviceStatus.InUse => "Đang sử dụng",
+        DeviceStatus.UnderRepair => "Đang sửa chữa",
+        DeviceStatus.Disposed => "Đã thanh lý",
+        _ => status?.ToString() ?? "-"
+    };
 
     private static DeviceDto ToDto(Device x) =>
         new(

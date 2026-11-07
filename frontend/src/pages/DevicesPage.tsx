@@ -32,7 +32,27 @@ import type {
   DeviceModel,
 } from '../types'
 import { Pagination } from '../components/Pagination'
+import { ErrorModal } from '../components/ErrorModal'
 import { useAuth } from '../contexts/AuthContext'
+import { formatHistoryDescription } from './DeviceHistoryPage'
+
+function formatErrorMessage(msg?: string, fallback: string = 'Đã xảy ra lỗi không xác định.'): string {
+  if (!msg) return fallback
+  const lower = msg.toLowerCase()
+  if (lower.includes('code already exists') || lower.includes('device code already exists')) {
+    return 'Mã thiết bị đã tồn tại trong hệ thống. Vui lòng chọn mã khác.'
+  }
+  if (lower.includes('serial number already exists') || lower.includes('serial')) {
+    return 'Số serial của thiết bị đã tồn tại trong hệ thống. Vui lòng kiểm tra lại.'
+  }
+  if (lower.includes('assignment history') || lower.includes('has assignment')) {
+    return 'Không thể xóa thiết bị đã có lịch sử bàn giao cấp phát. Vui lòng chuyển trạng thái sang "Đã thanh lý".'
+  }
+  if (lower.includes('device not found')) {
+    return 'Không tìm thấy thông tin thiết bị.'
+  }
+  return msg
+}
 
 const deviceStatusConfig: Record<DeviceStatus, { text: string; className: string }> = {
   1: { text: 'Chưa cấp phát', className: 'badge badge-green' },
@@ -51,6 +71,11 @@ const historyActionConfig: Record<string, { label: string; className: string }> 
   AssignmentReturned: { label: 'Hoàn trả thiết bị', className: 'badge badge-purple' },
   AssignmentRevoked: { label: 'Thu hồi bàn giao', className: 'badge badge-gray' },
   StatusRecalculated: { label: 'Cập nhật trạng thái', className: 'badge badge-blue' },
+  IncidentReported: { label: 'Báo cáo sự cố', className: 'badge badge-amber' },
+  IncidentStatusUpdated: { label: 'Tiến độ sự cố', className: 'badge badge-blue' },
+  RepairOrderCreated: { label: 'Tạo lệnh sửa chữa', className: 'badge badge-purple' },
+  RepairOrderAssigned: { label: 'Phân công kỹ thuật', className: 'badge badge-blue' },
+  RepairStatusUpdated: { label: 'Tiến độ sửa chữa', className: 'badge badge-purple' },
 }
 
 export function DevicesPage() {
@@ -66,6 +91,7 @@ export function DevicesPage() {
   const [status, setStatus] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [errorModal, setErrorModal] = useState<{ title?: string; message: string } | null>(null)
 
   // Catalog states (Phase 10)
   const [deviceTypes, setDeviceTypes] = useState<DeviceType[]>([])
@@ -254,7 +280,8 @@ export function DevicesPage() {
         err && typeof err === 'object' && 'response' in err
           ? (err as { response?: { data?: { message?: string } } }).response?.data?.message
           : 'Thêm thiết bị thất bại.'
-      setError(msg || 'Lỗi thêm thiết bị')
+      const viMsg = formatErrorMessage(msg, 'Thêm thiết bị thất bại.')
+      setErrorModal({ title: 'Không thể thêm thiết bị', message: viMsg })
     } finally {
       setSubmitting(false)
     }
@@ -270,7 +297,8 @@ export function DevicesPage() {
         err && typeof err === 'object' && 'response' in err
           ? (err as { response?: { data?: { message?: string } } }).response?.data?.message
           : 'Xóa thiết bị thất bại.'
-      setError(msg || 'Lỗi xóa thiết bị')
+      const viMsg = formatErrorMessage(msg, 'Xóa thiết bị thất bại.')
+      setErrorModal({ title: 'Không thể xóa thiết bị', message: viMsg })
     }
   }
 
@@ -298,13 +326,6 @@ export function DevicesPage() {
           </button>
         )}
       </div>
-
-      {error && (
-        <div className="alert-error" style={{ marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <AlertCircle size={18} />
-          <span>{error}</span>
-        </div>
-      )}
 
       {/* 4 Statistics Cards */}
       <div className="stats-grid">
@@ -730,7 +751,7 @@ export function DevicesPage() {
 
                         {entry.description && (
                           <div style={{ margin: '6px 0', color: 'var(--foreground)' }}>
-                            {entry.description}
+                            {formatHistoryDescription(entry.description)}
                           </div>
                         )}
 
@@ -783,6 +804,14 @@ export function DevicesPage() {
           </div>
         </div>
       )}
+
+      {/* Modal Dialog: Thông báo lỗi chuyên biệt */}
+      <ErrorModal
+        open={!!errorModal}
+        title={errorModal?.title}
+        message={errorModal?.message || ''}
+        onClose={() => setErrorModal(null)}
+      />
     </div>
   )
 }

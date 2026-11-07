@@ -131,7 +131,8 @@ public class RepairOrderService : IRepairOrderService
             assignedUser = await _userRepository.GetByIdAsync(request.AssignedToUserId.Value)
                 ?? throw new NotFoundException("Kỹ thuật viên được chỉ định không tồn tại.");
 
-            if (assignedUser.Role is not ("Technician" or "Admin"))
+            // Quy tắc nghiệp vụ: Chỉ người dùng có vai trò Kỹ thuật viên (Technician) mới được phân công nhận lệnh sửa chữa.
+            if (assignedUser.Role != "Technician")
             {
                 throw new BusinessException("Người được phân công phải có vai trò Kỹ thuật viên (Technician).");
             }
@@ -189,7 +190,7 @@ public class RepairOrderService : IRepairOrderService
             Action = "RepairOrderCreated",
             OldStatus = oldDeviceStatus,
             NewStatus = DeviceStatus.UnderRepair,
-            Description = $"Tạo lệnh sửa chữa '{order.Code}' (Mức độ: {order.Priority}). Thiết bị chuyển sang trạng thái Đang sửa chữa.",
+            Description = $"Tạo lệnh sửa chữa '{order.Code}' (Mức độ: {FormatPriorityVi(order.Priority)}). Thiết bị chuyển sang trạng thái Đang sửa chữa.",
             CreatedByUserId = currentUserId,
             CreatedAt = DateTime.UtcNow
         });
@@ -218,9 +219,10 @@ public class RepairOrderService : IRepairOrderService
         var technician = await _userRepository.GetByIdAsync(request.AssignedToUserId)
             ?? throw new NotFoundException("Kỹ thuật viên không tồn tại.");
 
-        if (technician.Role is not ("Technician" or "Admin"))
+        // Quy tắc nghiệp vụ: Chỉ người dùng có vai trò Kỹ thuật viên (Technician) mới được phân công nhận lệnh sửa chữa.
+        if (technician.Role != "Technician")
         {
-            throw new BusinessException("Người được phân công phải có vai trò Kỹ thuật viên.");
+            throw new BusinessException("Người được phân công phải có vai trò Kỹ thuật viên (Technician).");
         }
 
         order.AssignedToUserId = technician.Id;
@@ -332,7 +334,7 @@ public class RepairOrderService : IRepairOrderService
             Action = "RepairStatusUpdated",
             OldStatus = order.Device.Status,
             NewStatus = updatedDevice.Status,
-            Description = $"Lệnh sửa chữa '{order.Code}' cập nhật trạng thái sang {order.Status}. Chi phí thực tế: {(order.ActualCost.HasValue ? order.ActualCost.Value.ToString("N0") + " VND" : "Chưa có")}.",
+            Description = $"Lệnh sửa chữa '{order.Code}' cập nhật trạng thái sang '{FormatRepairStatusVi(order.Status)}'. Chi phí thực tế: {(order.ActualCost.HasValue ? order.ActualCost.Value.ToString("N0") + " VND" : "Chưa có")}.",
             CreatedByUserId = currentUserId,
             CreatedAt = DateTime.UtcNow
         });
@@ -343,6 +345,27 @@ public class RepairOrderService : IRepairOrderService
         order.Device = updatedDevice;
         return ToDto(order);
     }
+
+    private static string FormatPriorityVi(RepairPriority priority) => priority switch
+    {
+        RepairPriority.Low => "Thấp",
+        RepairPriority.Medium => "Trung bình",
+        RepairPriority.High => "Cao",
+        RepairPriority.Critical => "Khẩn cấp",
+        _ => priority.ToString()
+    };
+
+    private static string FormatRepairStatusVi(RepairStatus status) => status switch
+    {
+        RepairStatus.Pending => "Chờ xử lý",
+        RepairStatus.Assigned => "Đã phân công",
+        RepairStatus.InProgress => "Đang sửa chữa",
+        RepairStatus.PendingParts => "Chờ linh kiện",
+        RepairStatus.Completed => "Hoàn thành",
+        RepairStatus.Closed => "Đã đóng",
+        RepairStatus.Cancelled => "Đã hủy",
+        _ => status.ToString()
+    };
 
     private static void EnsureValidTransition(RepairStatus current, RepairStatus next)
     {
@@ -360,7 +383,7 @@ public class RepairOrderService : IRepairOrderService
 
         if (!isValid)
         {
-            throw new BusinessException($"Không thể chuyển trạng thái sửa chữa từ {current} sang {next}.");
+            throw new BusinessException($"Không thể chuyển trạng thái sửa chữa từ '{FormatRepairStatusVi(current)}' sang '{FormatRepairStatusVi(next)}'.");
         }
     }
 

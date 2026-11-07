@@ -61,6 +61,7 @@ export function IncidentsPage() {
   const [searchTerm, setSearchTerm] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [modalError, setModalError] = useState('')
   const [successMsg, setSuccessMsg] = useState('')
 
   // Modals
@@ -192,10 +193,57 @@ export function IncidentsPage() {
     }
   }
 
+  function getErrorMessage(err: unknown, defaultMsg: string): string {
+    if (err && typeof err === 'object' && 'response' in err) {
+      const res = (err as { response?: { data?: { message?: string } } }).response
+      if (res?.data?.message) return res.data.message
+    }
+    if (err instanceof Error) return err.message
+    return defaultMsg
+  }
+
+  function getAvailableIncidentStatuses(current: IncidentStatus) {
+    switch (current) {
+      case 1: // Reported
+        return [
+          { value: 2, label: 'Đang xem xét (In Review)' },
+          { value: 3, label: 'Phê duyệt (Approved)' },
+          { value: 4, label: 'Từ chối (Rejected)' },
+          { value: 6, label: 'Đóng sự cố (Closed)' },
+        ]
+      case 2: // InReview
+        return [
+          { value: 3, label: 'Phê duyệt (Approved)' },
+          { value: 4, label: 'Từ chối (Rejected)' },
+          { value: 6, label: 'Đóng sự cố (Closed)' },
+        ]
+      case 3: // Approved
+        return [
+          { value: 5, label: 'Đã giải quyết (Resolved)' },
+          { value: 6, label: 'Đóng sự cố (Closed)' },
+        ]
+      case 4: // Rejected
+        return [
+          { value: 6, label: 'Đóng sự cố (Closed)' },
+        ]
+      case 5: // Resolved
+        return [
+          { value: 6, label: 'Đóng sự cố (Closed)' },
+        ]
+      default:
+        return [
+          { value: 6, label: 'Đóng sự cố (Closed)' },
+        ]
+    }
+  }
+
   function handleOpenStatusModal(incident: Incident) {
     setSelectedIncident(incident)
+    setModalError('')
+    const available = getAvailableIncidentStatuses(incident.status)
+    const nextStatus = available[0]?.value ?? incident.status
     setStatusForm({
-      status: incident.status,
+      status: nextStatus as IncidentStatus,
       severity: incident.severity,
       resolutionNotes: incident.resolutionNotes || '',
     })
@@ -207,7 +255,7 @@ export function IncidentsPage() {
     if (!selectedIncident) return
 
     setSubmitting(true)
-    setError('')
+    setModalError('')
     try {
       await updateIncidentStatus(selectedIncident.id, {
         status: statusForm.status,
@@ -218,8 +266,9 @@ export function IncidentsPage() {
       setSuccessMsg('Cập nhật trạng thái sự cố thành công!')
       setTimeout(() => setSuccessMsg(''), 4000)
       await loadIncidents()
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Không thể cập nhật trạng thái')
+    } catch (err: unknown) {
+      const msg = getErrorMessage(err, 'Không thể cập nhật trạng thái')
+      setModalError(msg)
     } finally {
       setSubmitting(false)
     }
@@ -398,14 +447,14 @@ export function IncidentsPage() {
             <table className="data-table">
               <thead>
                 <tr>
-                  <th>Thiết bị</th>
-                  <th>Tiêu đề sự cố</th>
-                  <th>Mức độ</th>
-                  <th>Người báo cáo</th>
-                  <th>Thời gian</th>
-                  <th>Trạng thái</th>
-                  <th>Lệnh SC</th>
-                  <th style={{ textAlign: 'right' }}>Thao tác</th>
+                  <th style={{ width: '120px', whiteSpace: 'nowrap' }}>Thiết bị</th>
+                  <th style={{ minWidth: '160px' }}>Tiêu đề sự cố</th>
+                  <th style={{ width: '90px', whiteSpace: 'nowrap' }}>Mức độ</th>
+                  <th style={{ width: '120px', whiteSpace: 'nowrap' }}>Người báo cáo</th>
+                  <th style={{ width: '95px', whiteSpace: 'nowrap' }}>Thời gian</th>
+                  <th style={{ width: '115px', whiteSpace: 'nowrap' }}>Trạng thái</th>
+                  <th style={{ width: '85px', whiteSpace: 'nowrap' }}>Lệnh SC</th>
+                  <th style={{ width: '105px', textAlign: 'right', whiteSpace: 'nowrap' }}>Thao tác</th>
                 </tr>
               </thead>
               <tbody>
@@ -419,66 +468,73 @@ export function IncidentsPage() {
                   items.map(incident => (
                     <tr key={incident.id}>
                       <td>
-                        <div style={{ fontWeight: 600 }}>{incident.deviceCode || 'N/A'}</div>
-                        <div style={{ fontSize: '12px', color: 'var(--muted-foreground)' }}>
+                        <div style={{ fontWeight: 600, color: 'var(--primary)', fontSize: '13px' }}>
+                          {incident.deviceCode || 'N/A'}
+                        </div>
+                        <div style={{ fontSize: '12px', color: 'var(--muted-foreground)', lineHeight: 1.2 }}>
                           {incident.deviceName}
                         </div>
                       </td>
                       <td>
-                        <div style={{ fontWeight: 500, maxWidth: '220px', wordBreak: 'break-word' }}>
+                        <div style={{ fontWeight: 500, maxWidth: '175px', wordBreak: 'break-word', fontSize: '13px' }}>
                           {incident.title}
                         </div>
-                        <div
-                          style={{
-                            fontSize: '12px',
-                            color: 'var(--muted-foreground)',
-                            maxWidth: '220px',
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis',
-                            whiteSpace: 'nowrap',
-                          }}
-                        >
-                          {incident.description}
-                        </div>
+                        {incident.description && (
+                          <div
+                            style={{
+                              fontSize: '12px',
+                              color: 'var(--muted-foreground)',
+                              maxWidth: '175px',
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                              whiteSpace: 'nowrap',
+                              marginTop: '2px',
+                            }}
+                            title={incident.description}
+                          >
+                            {incident.description}
+                          </div>
+                        )}
                       </td>
-                      <td>
-                        <span className={severityBadge[incident.severity]?.className || 'badge'}>
+                      <td style={{ whiteSpace: 'nowrap' }}>
+                        <span className={severityBadge[incident.severity]?.className || 'badge'} style={{ fontSize: '11.5px', padding: '2px 7px' }}>
                           {severityBadge[incident.severity]?.text || incident.severity}
                         </span>
                       </td>
-                      <td>
+                      <td style={{ whiteSpace: 'nowrap', fontSize: '13px' }}>
                         <div>{incident.reportedByUserName || 'N/A'}</div>
                       </td>
-                      <td style={{ fontSize: '13px' }}>
+                      <td style={{ fontSize: '12.5px', whiteSpace: 'nowrap', color: 'var(--muted-foreground)' }}>
                         {new Date(incident.reportedAt).toLocaleDateString('vi-VN')}
                       </td>
-                      <td>
-                        <span className={statusBadge[incident.status]?.className || 'badge'}>
+                      <td style={{ whiteSpace: 'nowrap' }}>
+                        <span className={statusBadge[incident.status]?.className || 'badge'} style={{ fontSize: '11.5px', padding: '2px 7px' }}>
                           {statusBadge[incident.status]?.text || incident.status}
                         </span>
                       </td>
-                      <td>
+                      <td style={{ whiteSpace: 'nowrap' }}>
                         {incident.hasRepairOrder ? (
-                          <span className="badge badge-green" title="Đã có lệnh sửa chữa">
+                          <span className="badge badge-green" style={{ fontSize: '11px', padding: '2px 6px' }} title="Đã có lệnh sửa chữa">
                             Có lệnh
                           </span>
                         ) : (
-                          <span className="badge badge-gray">Chưa có</span>
+                          <span className="badge badge-gray" style={{ fontSize: '11px', padding: '2px 6px' }}>Chưa có</span>
                         )}
                       </td>
-                      <td style={{ textAlign: 'right' }}>
-                        <div style={{ display: 'inline-flex', gap: '6px', justifyContent: 'flex-end' }}>
+                      <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
+                        <div style={{ display: 'inline-flex', gap: '4px', justifyContent: 'flex-end' }}>
                           {/* Xem chi tiết */}
                           <button
                             type="button"
                             className="btn btn-outline btn-sm"
+                            style={{ padding: '4px 7px' }}
                             title="Chi tiết sự cố"
                             onClick={() => {
                               setSelectedIncident(incident)
                               setOpenDetailModal(true)
                             }}
                           >
-                            <Eye size={14} />
+                            <Eye size={13} />
                           </button>
 
                           {/* Phê duyệt / Cập nhật trạng thái (Admin only) */}
@@ -486,10 +542,11 @@ export function IncidentsPage() {
                             <button
                               type="button"
                               className="btn btn-outline btn-sm"
+                              style={{ padding: '4px 7px' }}
                               title="Cập nhật trạng thái"
                               onClick={() => handleOpenStatusModal(incident)}
                             >
-                              <Filter size={14} />
+                              <Filter size={13} />
                             </button>
                           )}
 
@@ -498,10 +555,11 @@ export function IncidentsPage() {
                             <button
                               type="button"
                               className="btn btn-primary btn-sm"
+                              style={{ padding: '4px 7px' }}
                               title="Tạo Lệnh sửa chữa"
                               onClick={() => handleOpenRepairModal(incident)}
                             >
-                              <Wrench size={14} />
+                              <Wrench size={13} />
                             </button>
                           )}
 
@@ -510,10 +568,11 @@ export function IncidentsPage() {
                             <button
                               type="button"
                               className="btn btn-outline btn-sm"
+                              style={{ padding: '4px 7px' }}
                               title="Xem Lệnh sửa chữa"
                               onClick={() => navigate('/repairs')}
                             >
-                              <Wrench size={14} />
+                              <Wrench size={13} />
                             </button>
                           )}
                         </div>
@@ -749,6 +808,24 @@ export function IncidentsPage() {
             </div>
             <form onSubmit={handleUpdateStatus}>
               <div className="modal-body">
+                {modalError && (
+                  <div
+                    className="alert-error"
+                    style={{
+                      marginBottom: '14px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      padding: '8px 12px',
+                      fontSize: '13px',
+                      borderRadius: '6px',
+                    }}
+                  >
+                    <AlertCircle size={16} />
+                    <span>{modalError}</span>
+                  </div>
+                )}
+
                 <div style={{ marginBottom: '14px', fontSize: '14px' }}>
                   <strong>Thiết bị:</strong> {selectedIncident.deviceCode} - {selectedIncident.deviceName}
                   <br />
@@ -764,11 +841,11 @@ export function IncidentsPage() {
                       setStatusForm({ ...statusForm, status: Number(e.target.value) as IncidentStatus })
                     }
                   >
-                    <option value="2">Đang xem xét (In Review)</option>
-                    <option value="3">Phê duyệt (Approved)</option>
-                    <option value="4">Từ chối (Rejected)</option>
-                    <option value="5">Đã giải quyết (Resolved)</option>
-                    <option value="6">Đóng sự cố (Closed)</option>
+                    {getAvailableIncidentStatuses(selectedIncident.status).map(opt => (
+                      <option key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </option>
+                    ))}
                   </select>
                 </div>
 

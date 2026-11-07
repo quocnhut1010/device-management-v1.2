@@ -17,7 +17,26 @@ import {
 import { getUsers, createUser, updateUser, deleteUser, getDepartments } from '../services/resources'
 import type { Department, User, UserStatus } from '../types'
 import { Pagination } from '../components/Pagination'
+import { ErrorModal } from '../components/ErrorModal'
 import { useAuth } from '../contexts/AuthContext'
+
+function formatErrorMessage(msg?: string, fallback: string = 'Đã xảy ra lỗi không xác định.'): string {
+  if (!msg) return fallback
+  const lower = msg.toLowerCase()
+  if (lower.includes('email already exists') || lower.includes('user email already exists')) {
+    return 'Địa chỉ email này đã được sử dụng bởi một tài khoản khác trong hệ thống. Vui lòng kiểm tra và nhập địa chỉ email khác.'
+  }
+  if (lower.includes('code already exists') || lower.includes('user code already exists')) {
+    return 'Mã nhân viên đã tồn tại trong hệ thống. Vui lòng nhập mã khác.'
+  }
+  if (lower.includes('assignment history') || lower.includes('has assignment')) {
+    return 'Không thể xóa người dùng đã có lịch sử bàn giao thiết bị. Vui lòng chuyển trạng thái tài khoản sang "Ngưng hoạt động".'
+  }
+  if (lower.includes('user not found')) {
+    return 'Không tìm thấy thông tin người dùng.'
+  }
+  return msg
+}
 
 const userStatusConfig: Record<UserStatus, { text: string; className: string }> = {
   1: { text: 'Đang hoạt động', className: 'badge badge-green' },
@@ -44,6 +63,7 @@ export function UsersPage() {
   const [status, setStatus] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [errorModal, setErrorModal] = useState<{ title?: string; message: string } | null>(null)
 
   // Dialog states
   const [openCreateModal, setOpenCreateModal] = useState(false)
@@ -154,7 +174,8 @@ export function UsersPage() {
         err && typeof err === 'object' && 'response' in err
           ? (err as { response?: { data?: { message?: string } } }).response?.data?.message
           : 'Thêm người dùng thất bại.'
-      setError(msg || 'Lỗi thêm người dùng')
+      const viMsg = formatErrorMessage(msg, 'Thêm người dùng thất bại.')
+      setErrorModal({ title: 'Không thể thêm người dùng', message: viMsg })
     } finally {
       setSubmitting(false)
     }
@@ -179,7 +200,6 @@ export function UsersPage() {
     if (!editForm.id || !editForm.fullName || !editForm.email) return
 
     setSubmitting(true)
-    setError('')
     try {
       await updateUser(editForm.id, {
         fullName: editForm.fullName.trim(),
@@ -196,7 +216,8 @@ export function UsersPage() {
         err && typeof err === 'object' && 'response' in err
           ? (err as { response?: { data?: { message?: string } } }).response?.data?.message
           : 'Cập nhật người dùng thất bại.'
-      setError(msg || 'Lỗi cập nhật người dùng')
+      const viMsg = formatErrorMessage(msg, 'Cập nhật người dùng thất bại.')
+      setErrorModal({ title: 'Không thể cập nhật người dùng', message: viMsg })
     } finally {
       setSubmitting(false)
     }
@@ -212,7 +233,8 @@ export function UsersPage() {
         err && typeof err === 'object' && 'response' in err
           ? (err as { response?: { data?: { message?: string } } }).response?.data?.message
           : 'Xóa tài khoản thất bại.'
-      setError(msg || 'Lỗi xóa tài khoản')
+      const viMsg = formatErrorMessage(msg, 'Xóa tài khoản thất bại.')
+      setErrorModal({ title: 'Không thể xóa tài khoản', message: viMsg })
     }
   }
 
@@ -240,13 +262,6 @@ export function UsersPage() {
           </button>
         )}
       </div>
-
-      {error && (
-        <div className="alert-error" style={{ marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <AlertCircle size={18} />
-          <span>{error}</span>
-        </div>
-      )}
 
       {/* 4 Statistics Cards */}
       <div className="stats-grid">
@@ -719,6 +734,14 @@ export function UsersPage() {
           </div>
         </div>
       )}
+
+      {/* Modal Dialog: Thông báo lỗi chuyên biệt */}
+      <ErrorModal
+        open={!!errorModal}
+        title={errorModal?.title}
+        message={errorModal?.message || ''}
+        onClose={() => setErrorModal(null)}
+      />
     </div>
   )
 }

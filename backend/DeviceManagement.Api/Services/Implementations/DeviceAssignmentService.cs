@@ -110,7 +110,7 @@ public class DeviceAssignmentService : IDeviceAssignmentService
         var currentDevice = await _deviceRepository.GetByIdAsync(device.Id)
             ?? throw new NotFoundException("Device not found.");
 
-        await WriteHistoryAsync(device.Id, request.AssignedByUserId, "AssignmentCreated", oldDeviceStatus, currentDevice.Status, $"Device assigned to user {request.UserId} and waiting for acceptance.");
+        await WriteHistoryAsync(device.Id, request.AssignedByUserId, "AssignmentCreated", oldDeviceStatus, currentDevice.Status, $"Tạo phiếu bàn giao thiết bị cho nhân viên và đang chờ tiếp nhận.");
         await transaction.CommitAsync();
 
         return ToDto(assignment);
@@ -260,11 +260,11 @@ public class DeviceAssignmentService : IDeviceAssignmentService
     private static string GetHistoryDescription(DeviceAssignment assignment, DeviceAssignmentStatus status) =>
         status switch
         {
-            DeviceAssignmentStatus.Accepted => $"User {assignment.UserId} accepted assignment.",
-            DeviceAssignmentStatus.Rejected => $"User {assignment.UserId} rejected assignment.",
-            DeviceAssignmentStatus.Returned => $"User {assignment.UserId} returned device.",
-            DeviceAssignmentStatus.Revoked => $"Assignment revoked by user {assignment.AssignedByUserId}.",
-            _ => "Assignment status updated."
+            DeviceAssignmentStatus.Accepted => $"Nhân viên {assignment.User?.FullName ?? assignment.UserId.ToString()} đã tiếp nhận thiết bị.",
+            DeviceAssignmentStatus.Rejected => $"Nhân viên {assignment.User?.FullName ?? assignment.UserId.ToString()} từ chối nhận thiết bị.",
+            DeviceAssignmentStatus.Returned => $"Thiết bị đã được hoàn trả bởi nhân viên {assignment.User?.FullName ?? assignment.UserId.ToString()}.",
+            DeviceAssignmentStatus.Revoked => $"Phiếu bàn giao thiết bị đã bị thu hồi.",
+            _ => "Cập nhật trạng thái bàn giao thiết bị."
         };
 
     private static DeviceAssignmentDto ToDto(DeviceAssignment x) =>

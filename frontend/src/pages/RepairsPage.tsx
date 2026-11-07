@@ -66,6 +66,7 @@ export function RepairsPage() {
   const [searchTerm, setSearchTerm] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [modalError, setModalError] = useState('')
   const [successMsg, setSuccessMsg] = useState('')
 
   // Modals
@@ -222,16 +223,59 @@ export function RepairsPage() {
     }
   }
 
+  function getErrorMessage(err: unknown, defaultMsg: string): string {
+    if (err && typeof err === 'object' && 'response' in err) {
+      const res = (err as { response?: { data?: { message?: string } } }).response
+      if (res?.data?.message) return res.data.message
+    }
+    if (err instanceof Error) return err.message
+    return defaultMsg
+  }
+
+  function getAvailableRepairStatuses(current: RepairStatus, isUserAdmin: boolean) {
+    switch (current) {
+      case 1: // Pending
+        return [
+          { value: 2, label: 'Đã phân công (Assigned)' },
+          { value: 3, label: 'Đang thực hiện sửa chữa (In Progress)' },
+          ...(isUserAdmin ? [{ value: 7, label: 'Hủy lệnh sửa chữa (Cancelled)' }] : []),
+        ]
+      case 2: // Assigned
+        return [
+          { value: 3, label: 'Đang thực hiện sửa chữa (In Progress)' },
+          { value: 4, label: 'Chờ linh kiện thay thế (Pending Parts)' },
+          ...(isUserAdmin ? [{ value: 7, label: 'Hủy lệnh sửa chữa (Cancelled)' }] : []),
+        ]
+      case 3: // InProgress
+        return [
+          { value: 4, label: 'Chờ linh kiện thay thế (Pending Parts)' },
+          { value: 5, label: 'Đã sửa chữa hoàn thành (Completed)' },
+          ...(isUserAdmin ? [{ value: 7, label: 'Hủy lệnh sửa chữa (Cancelled)' }] : []),
+        ]
+      case 4: // PendingParts
+        return [
+          { value: 3, label: 'Đang thực hiện sửa chữa (In Progress)' },
+          { value: 5, label: 'Đã sửa chữa hoàn thành (Completed)' },
+          ...(isUserAdmin ? [{ value: 7, label: 'Hủy lệnh sửa chữa (Cancelled)' }] : []),
+        ]
+      case 5: // Completed
+        return [
+          { value: 3, label: 'Yêu cầu sửa lại (In Progress)' },
+          ...(isUserAdmin ? [{ value: 6, label: 'Đã nghiệm thu & đóng lệnh (Closed)' }] : []),
+        ]
+      default:
+        return []
+    }
+  }
+
   function handleOpenStatusModal(order: RepairOrder) {
     setSelectedOrder(order)
-    // Default next reasonable status
-    let nextStatus: RepairStatus = order.status
-    if (order.status === 2) nextStatus = 3 // Assigned -> InProgress
-    else if (order.status === 3) nextStatus = 5 // InProgress -> Completed
-    else if (order.status === 5 && isAdmin) nextStatus = 6 // Completed -> Closed
+    setModalError('')
+    const available = getAvailableRepairStatuses(order.status, isAdmin)
+    const nextStatus = available[0]?.value ?? order.status
 
     setStatusForm({
-      status: nextStatus,
+      status: nextStatus as RepairStatus,
       actualCost: order.actualCost ? order.actualCost.toString() : (order.estimatedCost ? order.estimatedCost.toString() : ''),
       resolutionNotes: order.resolutionNotes || '',
     })
@@ -243,7 +287,7 @@ export function RepairsPage() {
     if (!selectedOrder) return
 
     setSubmitting(true)
-    setError('')
+    setModalError('')
     try {
       await updateRepairOrderStatus(selectedOrder.id, {
         status: statusForm.status,
@@ -254,8 +298,9 @@ export function RepairsPage() {
       setSuccessMsg('Cập nhật tiến độ sửa chữa thành công!')
       setTimeout(() => setSuccessMsg(''), 4000)
       await loadRepairOrders()
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Không thể cập nhật trạng thái')
+    } catch (err: unknown) {
+      const msg = getErrorMessage(err, 'Không thể cập nhật tiến độ')
+      setModalError(msg)
     } finally {
       setSubmitting(false)
     }
@@ -402,14 +447,14 @@ export function RepairsPage() {
             <table className="data-table">
               <thead>
                 <tr>
-                  <th>Mã lệnh</th>
-                  <th>Thiết bị</th>
-                  <th>Sự cố liên quan</th>
-                  <th>Kỹ thuật viên</th>
-                  <th>Mức ưu tiên</th>
-                  <th>Chi phí</th>
-                  <th>Trạng thái</th>
-                  <th style={{ textAlign: 'right' }}>Thao tác</th>
+                  <th style={{ width: '115px', whiteSpace: 'nowrap' }}>Mã lệnh</th>
+                  <th style={{ width: '120px', whiteSpace: 'nowrap' }}>Thiết bị</th>
+                  <th style={{ minWidth: '130px' }}>Sự cố liên quan</th>
+                  <th style={{ width: '120px', whiteSpace: 'nowrap' }}>Kỹ thuật viên</th>
+                  <th style={{ width: '90px', whiteSpace: 'nowrap' }}>Mức ưu tiên</th>
+                  <th style={{ width: '90px', whiteSpace: 'nowrap' }}>Chi phí</th>
+                  <th style={{ width: '110px', whiteSpace: 'nowrap' }}>Trạng thái</th>
+                  <th style={{ width: '100px', textAlign: 'right', whiteSpace: 'nowrap' }}>Thao tác</th>
                 </tr>
               </thead>
               <tbody>
@@ -422,14 +467,14 @@ export function RepairsPage() {
                 ) : (
                   items.map(order => (
                     <tr key={order.id}>
-                      <td>
-                        <span style={{ fontWeight: 600, color: 'var(--primary)' }}>
+                      <td style={{ whiteSpace: 'nowrap' }}>
+                        <span style={{ fontWeight: 600, color: 'var(--primary)', fontSize: '11.5px', fontFamily: 'monospace', letterSpacing: '-0.02em' }}>
                           {order.code}
                         </span>
                       </td>
                       <td>
-                        <div style={{ fontWeight: 600 }}>{order.deviceCode || 'N/A'}</div>
-                        <div style={{ fontSize: '12px', color: 'var(--muted-foreground)' }}>
+                        <div style={{ fontWeight: 600, color: 'var(--primary)', fontSize: '13px' }}>{order.deviceCode || 'N/A'}</div>
+                        <div style={{ fontSize: '12px', color: 'var(--muted-foreground)', lineHeight: 1.2 }}>
                           {order.deviceName}
                         </div>
                       </td>
@@ -438,7 +483,7 @@ export function RepairsPage() {
                           <div
                             style={{
                               fontSize: '13px',
-                              maxWidth: '180px',
+                              maxWidth: '105px',
                               overflow: 'hidden',
                               textOverflow: 'ellipsis',
                               whiteSpace: 'nowrap',
@@ -448,24 +493,29 @@ export function RepairsPage() {
                             {order.incidentTitle}
                           </div>
                         ) : (
-                          <span style={{ fontSize: '12px', color: 'var(--muted-foreground)' }}>
-                            Trực tiếp (Không qua sự cố)
+                          <div>
+                            <div style={{ fontSize: '12px', fontWeight: 500 }}>Trực tiếp</div>
+                            <div style={{ fontSize: '11px', color: 'var(--muted-foreground)' }}>Không qua sự cố</div>
+                          </div>
+                        )}
+                      </td>
+                      <td style={{ whiteSpace: 'nowrap', fontSize: '13px' }}>
+                        {order.assignedToUserName ? (
+                          <div style={{ fontWeight: 500, maxWidth: '100px', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                            {order.assignedToUserName}
+                          </div>
+                        ) : (
+                          <span className="badge badge-amber" style={{ fontSize: '11px', padding: '2px 7px' }}>
+                            Chưa phân công
                           </span>
                         )}
                       </td>
-                      <td>
-                        {order.assignedToUserName ? (
-                          <div style={{ fontWeight: 500 }}>{order.assignedToUserName}</div>
-                        ) : (
-                          <span className="badge badge-amber">Chưa phân công</span>
-                        )}
-                      </td>
-                      <td>
-                        <span className={priorityBadge[order.priority]?.className || 'badge'}>
+                      <td style={{ whiteSpace: 'nowrap' }}>
+                        <span className={priorityBadge[order.priority]?.className || 'badge'} style={{ fontSize: '11.5px', padding: '2px 7px' }}>
                           {priorityBadge[order.priority]?.text || order.priority}
                         </span>
                       </td>
-                      <td>
+                      <td style={{ whiteSpace: 'nowrap' }}>
                         <div style={{ fontSize: '13px' }}>
                           <strong>{formatCurrency(order.actualCost ?? order.estimatedCost)}</strong>
                         </div>
@@ -475,24 +525,25 @@ export function RepairsPage() {
                           </div>
                         )}
                       </td>
-                      <td>
-                        <span className={statusBadge[order.status]?.className || 'badge'}>
+                      <td style={{ whiteSpace: 'nowrap' }}>
+                        <span className={statusBadge[order.status]?.className || 'badge'} style={{ fontSize: '11.5px', padding: '2px 7px' }}>
                           {statusBadge[order.status]?.text || order.status}
                         </span>
                       </td>
-                      <td style={{ textAlign: 'right' }}>
-                        <div style={{ display: 'inline-flex', gap: '6px', justifyContent: 'flex-end' }}>
+                      <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
+                        <div style={{ display: 'inline-flex', gap: '4px', justifyContent: 'flex-end' }}>
                           {/* Chi tiết */}
                           <button
                             type="button"
                             className="btn btn-outline btn-sm"
+                            style={{ padding: '4px 7px' }}
                             title="Chi tiết lệnh"
                             onClick={() => {
                               setSelectedOrder(order)
                               setOpenDetailModal(true)
                             }}
                           >
-                            <Eye size={14} />
+                            <Eye size={13} />
                           </button>
 
                           {/* Phân công KTV (Admin only, khi lệnh chưa hoàn tất/đóng/hủy) */}
@@ -500,10 +551,11 @@ export function RepairsPage() {
                             <button
                               type="button"
                               className="btn btn-outline btn-sm"
+                              style={{ padding: '4px 7px' }}
                               title="Phân công Kỹ thuật viên"
                               onClick={() => handleOpenAssignModal(order)}
                             >
-                              <UserCheck size={14} />
+                              <UserCheck size={13} />
                             </button>
                           )}
 
@@ -512,10 +564,11 @@ export function RepairsPage() {
                             <button
                               type="button"
                               className="btn btn-primary btn-sm"
+                              style={{ padding: '4px 7px' }}
                               title="Cập nhật tiến độ"
                               onClick={() => handleOpenStatusModal(order)}
                             >
-                              <Settings size={14} />
+                              <Settings size={13} />
                             </button>
                           )}
                         </div>
@@ -735,6 +788,24 @@ export function RepairsPage() {
             </div>
             <form onSubmit={handleUpdateStatus}>
               <div className="modal-body">
+                {modalError && (
+                  <div
+                    className="alert-error"
+                    style={{
+                      marginBottom: '14px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      padding: '8px 12px',
+                      fontSize: '13px',
+                      borderRadius: '6px',
+                    }}
+                  >
+                    <AlertCircle size={16} />
+                    <span>{modalError}</span>
+                  </div>
+                )}
+
                 <div style={{ marginBottom: '14px', fontSize: '14px' }}>
                   <strong>Lệnh sửa chữa:</strong> {selectedOrder.code}
                   <br />
@@ -750,12 +821,11 @@ export function RepairsPage() {
                       setStatusForm({ ...statusForm, status: Number(e.target.value) as RepairStatus })
                     }
                   >
-                    <option value="2">Đã phân công (Assigned)</option>
-                    <option value="3">Đang thực hiện sửa chữa (In Progress)</option>
-                    <option value="4">Chờ linh kiện thay thế (Pending Parts)</option>
-                    <option value="5">Đã sửa chữa hoàn thành (Completed)</option>
-                    {isAdmin && <option value="6">Đã nghiệm thu & đóng lệnh (Closed)</option>}
-                    {isAdmin && <option value="7">Hủy lệnh sửa chữa (Cancelled)</option>}
+                    {getAvailableRepairStatuses(selectedOrder.status, isAdmin).map(opt => (
+                      <option key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </option>
+                    ))}
                   </select>
                 </div>
 
